@@ -1,0 +1,178 @@
+---
+title: 'Environment Variables'
+description: 'Configure your WhatsApp Attendance Bot with the required environment variables'
+icon: 'key'
+---
+
+## Overview
+
+The WhatsApp Attendance Bot requires three essential environment variables to connect to the Ultramsg API and send messages to your designated WhatsApp group. These variables must be configured as GitHub Secrets for secure storage.
+
+<Warning>
+  Never commit these values directly to your repository. Always use GitHub Secrets to store sensitive credentials.
+</Warning>
+
+## Required Environment Variables
+
+<ParamField path="INSTANCE_ID" type="string" required>
+  Your Ultramsg instance identifier. This is obtained from your Ultramsg dashboard after creating an instance.
+  
+  **Usage in code**: Used to construct the API endpoint URL:
+  ```python
+  url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+  ```
+  
+  **Example format**: `instance12345`
+</ParamField>
+
+<ParamField path="TOKEN" type="string" required>
+  Your Ultramsg API authentication token. This token authorizes API requests to send messages.
+  
+  **Usage in code**: Passed as a parameter in the API payload:
+  ```python
+  payload = {
+      "token": token,
+      "to": group_id,
+      "body": mensaje
+  }
+  ```
+  
+  **Example format**: `abcdef123456789`
+</ParamField>
+
+<ParamField path="GROUP_ID" type="string" required>
+  The WhatsApp group ID where attendance messages will be sent. This must include the country code and end with `@g.us` for groups.
+  
+  **Usage in code**: Specifies the message recipient:
+  ```python
+  payload = {
+      "token": token,
+      "to": group_id,
+      "body": mensaje
+  }
+  ```
+  
+  **Example format**: `521234567890-1234567890@g.us`
+</ParamField>
+
+## Setting Up GitHub Secrets
+
+<Steps>
+  <Step title="Navigate to Repository Settings">
+    Go to your GitHub repository and click on **Settings** in the top menu.
+  </Step>
+  
+  <Step title="Access Secrets Section">
+    In the left sidebar, expand **Secrets and variables**, then click **Actions**.
+  </Step>
+  
+  <Step title="Add New Secret">
+    Click the **New repository secret** button.
+  </Step>
+  
+  <Step title="Configure INSTANCE_ID">
+    - **Name**: `INSTANCE_ID`
+    - **Value**: Your Ultramsg instance ID (e.g., `instance12345`)
+    - Click **Add secret**
+  </Step>
+  
+  <Step title="Configure TOKEN">
+    Repeat step 3 and add:
+    - **Name**: `TOKEN`
+    - **Value**: Your Ultramsg API token
+    - Click **Add secret**
+  </Step>
+  
+  <Step title="Configure GROUP_ID">
+    Repeat step 3 and add:
+    - **Name**: `GROUP_ID`
+    - **Value**: Your WhatsApp group ID (e.g., `521234567890-1234567890@g.us`)
+    - Click **Add secret**
+  </Step>
+</Steps>
+
+## How Variables Are Used
+
+The GitHub Actions workflow (`.github/workflows/main.yml`) injects these secrets as environment variables when running the bot:
+
+```yaml
+- name: Execute Script
+  env:
+    INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+    TOKEN: ${{ secrets.TOKEN }}
+    GROUP_ID: ${{ secrets.GROUP_ID }}
+  run: python bot.py
+```
+
+The Python script (`bot.py`) retrieves these values using `os.getenv()`:
+
+```python
+instance_id = os.getenv('INSTANCE_ID')
+token = os.getenv('TOKEN')
+group_id = os.getenv('GROUP_ID')
+```
+
+## Verification
+
+<Info>
+  After setting up your secrets, you can test the configuration by manually triggering the workflow using the **Actions** tab in your GitHub repository.
+</Info>
+
+### Testing Your Configuration
+
+1. Go to the **Actions** tab in your repository
+2. Select the "Registro WhatsApp Automático" workflow
+3. Click **Run workflow** > **Run workflow**
+4. Check your WhatsApp group for the attendance message
+
+<Tip>
+  If the message doesn't appear, check the workflow run logs in the Actions tab for error messages about missing or invalid credentials.
+</Tip>
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Rotate Tokens Regularly" icon="rotate">
+    Update your TOKEN periodically in both Ultramsg and GitHub Secrets to maintain security.
+  </Card>
+  
+  <Card title="Limit Repository Access" icon="lock">
+    Only grant repository access to trusted collaborators who need to manage the bot.
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Regularly check your Ultramsg dashboard for unexpected API usage.
+  </Card>
+  
+  <Card title="Use Read-Only When Possible" icon="eye">
+    Grant collaborators read-only access unless they specifically need to modify secrets.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Common Issues
+
+**Secret not found error**
+- Verify that the secret name exactly matches the variable name in the workflow file (case-sensitive)
+- Ensure you've saved the secret after entering the value
+
+**Invalid token error**
+- Double-check that you copied the complete token from Ultramsg without extra spaces
+- Verify the token is still active in your Ultramsg account
+
+**Message not delivered**
+- Confirm the GROUP_ID format includes `@g.us` for groups
+- Verify your Ultramsg instance is connected and active
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Scheduling" icon="clock" href="/configuration/scheduling">
+    Configure when your attendance messages are sent
+  </Card>
+  
+  <Card title="Ultramsg Setup" icon="whatsapp" href="/configuration/ultramsg-setup">
+    Learn how to obtain your Ultramsg credentials
+  </Card>
+</CardGroup>

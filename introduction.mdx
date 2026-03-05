@@ -1,0 +1,101 @@
+---
+title: Introduction
+description: Automate WhatsApp attendance notifications with GitHub Actions
+---
+
+# WhatsApp Attendance Bot
+
+An automated WhatsApp bot that sends scheduled entry and exit notifications via GitHub Actions. Perfect for tracking attendance, work hours, or any time-based notifications through WhatsApp groups.
+
+## Overview
+
+This bot uses the Ultramsg API to send WhatsApp messages on a schedule. It runs automatically via GitHub Actions cron jobs, sending entry notifications at 9:00 AM and exit notifications at 3:00 PM (Monday through Friday).
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get your bot running in under 5 minutes
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/environment-variables">
+    Configure environment variables and scheduling
+  </Card>
+  <Card title="GitHub Actions" icon="github" href="/guides/github-actions-setup">
+    Set up automated workflows
+  </Card>
+  <Card title="Customization" icon="palette" href="/guides/customizing-messages">
+    Customize your notification messages
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Automated Messaging" icon="message">
+    Send WhatsApp messages automatically via the Ultramsg API
+  </Card>
+  <Card title="Scheduled Notifications" icon="clock">
+    Configure cron schedules for entry/exit notifications
+  </Card>
+  <Card title="Time-Based Logic" icon="calendar">
+    Automatically detect entry vs. exit based on UTC time
+  </Card>
+  <Card title="Manual Testing" icon="play">
+    Test your bot manually with workflow dispatch
+  </Card>
+</CardGroup>
+
+## How It Works
+
+The bot operates on a simple workflow:
+
+<Steps>
+  <Step title="Schedule triggers">
+    GitHub Actions runs the bot at configured cron times (9 AM and 3 PM CST)
+  </Step>
+  <Step title="Time detection">
+    The bot checks the current UTC hour to determine entry or exit
+  </Step>
+  <Step title="Message sent">
+    A formatted message is sent to your WhatsApp group via Ultramsg API
+  </Step>
+</Steps>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Attendance Tracking">
+    Automatically log when you start and end work each day to a WhatsApp group
+  </Accordion>
+  <Accordion title="Work Hour Logging">
+    Keep a record of your daily work hours shared with your team
+  </Accordion>
+  <Accordion title="Scheduled Reminders">
+    Send time-based reminders or notifications to WhatsApp contacts
+  </Accordion>
+  <Accordion title="Custom Automations">
+    Adapt the bot for any scheduled WhatsApp messaging needs
+  </Accordion>
+</AccordionGroup>
+
+## Requirements
+
+Before getting started, you'll need:
+
+- A GitHub account with Actions enabled
+- An Ultramsg account and API credentials
+- A WhatsApp group or contact ID to send messages to
+- Basic familiarity with GitHub repositories and secrets
+
+<Note>
+  The bot is designed to run completely free using GitHub Actions' free tier, which includes 2,000 minutes per month.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Get Started" icon="play" href="/quickstart">
+    Follow the quickstart guide to deploy your bot
+  </Card>
+  <Card title="Environment Setup" icon="key" href="/configuration/environment-variables">
+    Learn about required environment variables
+  </Card>
+</CardGroup>

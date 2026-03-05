@@ -1,0 +1,310 @@
+---
+title: 'Customizing Messages'
+description: 'Learn how to customize attendance notification messages and add dynamic content'
+---
+
+## Overview
+
+The bot sends different messages based on the time of day. This guide shows you how to customize these messages to match your needs.
+
+## Message Configuration
+
+Messages are defined in `bot.py` at line 13. Here's the current implementation:
+
+```python bot.py
+# Determinar si es entrada o salida según la hora (UTC)
+# Ejemplo: Si estás en México, 15:00 UTC es 9:00 AM
+ahora_hora = datetime.datetime.utcnow().hour
+mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+```
+
+## Understanding the Time Logic
+
+The bot uses UTC hour to determine which message to send:
+
+<Steps>
+  <Step title="Time Check">
+    The condition `ahora_hora < 18` checks if the current UTC hour is before 18:00 (6:00 PM UTC).
+    
+    ```python
+    ahora_hora = datetime.datetime.utcnow().hour
+    ```
+    
+    - If UTC hour < 18 → Send "Entrada" (Check-in) message
+    - If UTC hour ≥ 18 → Send "Salida" (Check-out) message
+  </Step>
+
+  <Step title="UTC Consideration">
+    Since GitHub Actions runs in UTC, the threshold hour depends on your timezone:
+    
+    | Timezone | Morning Run (Local) | UTC Hour | Evening Run (Local) | UTC Hour |
+    |----------|---------------------|----------|---------------------|----------|
+    | CST (UTC-6) | 9:00 AM | 15 | 3:00 PM | 21 |
+    | PST (UTC-8) | 9:00 AM | 17 | 3:00 PM | 23 |
+    | EST (UTC-5) | 9:00 AM | 14 | 3:00 PM | 20 |
+    
+    <Info>
+      With the current threshold of 18, any run before 6:00 PM UTC sends "Entrada", and any run at or after sends "Salida".
+    </Info>
+  </Step>
+</Steps>
+
+## Customizing Message Content
+
+### Basic Customization
+
+Replace the name and times with your own:
+
+```python
+mensaje = "Your Name \n Entrada \n 8:30 AM" if ahora_hora < 18 else "Your Name\n Salida\n 5:00 PM"
+```
+
+<Note>
+  Use `\n` for line breaks in the message. This creates a multi-line WhatsApp message.
+</Note>
+
+### Adding More Information
+
+<Tabs>
+  <Tab title="Add Department">
+    ```python
+    mensaje = "Your Name\nDevelopment Team\nEntrada\n9:00 AM" if ahora_hora < 18 else "Your Name\nDevelopment Team\nSalida\n3:00 PM"
+    ```
+  </Tab>
+  
+  <Tab title="Add Employee ID">
+    ```python
+    mensaje = "Employee: Your Name\nID: 12345\nEntrada - 9:00 AM" if ahora_hora < 18 else "Employee: Your Name\nID: 12345\nSalida - 3:00 PM"
+    ```
+  </Tab>
+  
+  <Tab title="Add Location">
+    ```python
+    mensaje = "Your Name\nEntrada - 9:00 AM\nOficina Central" if ahora_hora < 18 else "Your Name\nSalida - 3:00 PM\nOficina Central"
+    ```
+  </Tab>
+</Tabs>
+
+## Dynamic Content
+
+### Including Actual Timestamp
+
+Instead of hardcoded times, include the actual execution time:
+
+```python
+import datetime
+
+def enviar_registro():
+    instance_id = os.getenv('INSTANCE_ID')
+    token = os.getenv('TOKEN')
+    group_id = os.getenv('GROUP_ID')
+    
+    # Get current time in your timezone
+    ahora_utc = datetime.datetime.utcnow()
+    ahora_hora = ahora_utc.hour
+    
+    # Convert to your local timezone (example: UTC-6 for CST)
+    offset_horas = -6
+    ahora_local = ahora_utc + datetime.timedelta(hours=offset_horas)
+    hora_formateada = ahora_local.strftime("%I:%M %p")
+    
+    if ahora_hora < 18:
+        mensaje = f"Your Name\nEntrada\n{hora_formateada}"
+    else:
+        mensaje = f"Your Name\nSalida\n{hora_formateada}"
+    
+    # ... rest of the function
+```
+
+<Warning>
+  Be careful with timezone offsets during Daylight Saving Time transitions. Consider using the `pytz` library for more robust timezone handling.
+</Warning>
+
+### Including Day of Week
+
+Add the day of the week to your message:
+
+```python
+import datetime
+
+def enviar_registro():
+    instance_id = os.getenv('INSTANCE_ID')
+    token = os.getenv('TOKEN')
+    group_id = os.getenv('GROUP_ID')
+    
+    ahora_utc = datetime.datetime.utcnow()
+    ahora_hora = ahora_utc.hour
+    
+    # Get day name
+    dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    dia_nombre = dias_semana[ahora_utc.weekday()]
+    
+    if ahora_hora < 18:
+        mensaje = f"Your Name\n{dia_nombre}\nEntrada - 9:00 AM"
+    else:
+        mensaje = f"Your Name\n{dia_nombre}\nSalida - 3:00 PM"
+    
+    # ... rest of the function
+```
+
+### Including Date
+
+Add the current date:
+
+```python
+import datetime
+
+def enviar_registro():
+    instance_id = os.getenv('INSTANCE_ID')
+    token = os.getenv('TOKEN')
+    group_id = os.getenv('GROUP_ID')
+    
+    ahora_utc = datetime.datetime.utcnow()
+    ahora_hora = ahora_utc.hour
+    
+    # Convert to local timezone
+    offset_horas = -6
+    ahora_local = ahora_utc + datetime.timedelta(hours=offset_horas)
+    fecha_formateada = ahora_local.strftime("%d/%m/%Y")
+    
+    if ahora_hora < 18:
+        mensaje = f"Your Name\nEntrada - 9:00 AM\nFecha: {fecha_formateada}"
+    else:
+        mensaje = f"Your Name\nSalida - 3:00 PM\nFecha: {fecha_formateada}"
+    
+    # ... rest of the function
+```
+
+## Adjusting the Time Threshold
+
+If your schedule changes or you need different logic, modify the threshold:
+
+<CodeGroup>
+```python Flexible Threshold
+# If you have 3+ runs per day
+ahora_hora = datetime.datetime.utcnow().hour
+
+if ahora_hora < 16:  # Before 4:00 PM UTC
+    mensaje = "Your Name\nEntrada - Morning"
+elif ahora_hora < 20:  # Between 4:00 PM - 8:00 PM UTC
+    mensaje = "Your Name\nRegreso de Almuerzo"
+else:  # After 8:00 PM UTC
+    mensaje = "Your Name\nSalida - Evening"
+```
+
+```python Timezone-Aware Threshold
+# Using local hour instead of UTC
+ahora_utc = datetime.datetime.utcnow()
+offset_horas = -6  # CST
+ahora_local = ahora_utc + datetime.timedelta(hours=offset_horas)
+ahora_local_num = ahora_local.hour
+
+if ahora_local_num < 12:  # Before noon local time
+    mensaje = "Your Name\nEntrada\n9:00 AM"
+else:  # Afternoon local time
+    mensaje = "Your Name\nSalida\n3:00 PM"
+```
+
+```python Exact Time Matching
+# Match specific scheduled times
+ahora_hora = datetime.datetime.utcnow().hour
+
+if ahora_hora == 15:  # Exactly 15:00 UTC (9:00 AM CST)
+    mensaje = "Your Name\nEntrada\n9:00 AM"
+elif ahora_hora == 21:  # Exactly 21:00 UTC (3:00 PM CST)
+    mensaje = "Your Name\nSalida\n3:00 PM"
+else:
+    mensaje = "Your Name\nRegistro Manual"
+```
+</CodeGroup>
+
+## Message Formatting Tips
+
+<Tip>
+  **WhatsApp Formatting:**
+  - `*bold text*` - Makes text bold
+  - `_italic text_` - Makes text italic  
+  - `~strikethrough~` - Strikes through text
+  - Use emojis for visual appeal: 🟢 for entrada, 🔴 for salida
+</Tip>
+
+### Formatted Message Examples
+
+```python
+# With emojis and formatting
+if ahora_hora < 18:
+    mensaje = "*Your Name*\n🟢 Entrada\n⏰ 9:00 AM"
+else:
+    mensaje = "*Your Name*\n🔴 Salida\n⏰ 3:00 PM"
+```
+
+```python
+# Professional format
+if ahora_hora < 18:
+    mensaje = "=== REGISTRO DE ASISTENCIA ===\nEmpleado: Your Name\nTipo: ENTRADA\nHora: 9:00 AM\n==========================="
+else:
+    mensaje = "=== REGISTRO DE ASISTENCIA ===\nEmpleado: Your Name\nTipo: SALIDA\nHora: 3:00 PM\n==========================="
+```
+
+## Testing Your Changes
+
+After modifying the message:
+
+1. Commit your changes to GitHub
+2. Use the **workflow_dispatch** trigger to run manually
+3. Check the WhatsApp group for the new message format
+4. Verify the output in GitHub Actions logs
+
+<Info>
+  The bot's response is printed in the workflow logs. Look for:
+  ```
+  Status: 200, Response: {"sent":"true","message":"ok"}
+  ```
+</Info>
+
+## Complete Example
+
+Here's a fully customized version with dynamic content:
+
+```python bot.py
+import requests
+import os
+import datetime
+
+def enviar_registro():
+    instance_id = os.getenv('INSTANCE_ID')
+    token = os.getenv('TOKEN')
+    group_id = os.getenv('GROUP_ID')
+    
+    # Get current time
+    ahora_utc = datetime.datetime.utcnow()
+    ahora_hora = ahora_utc.hour
+    
+    # Convert to local timezone (CST: UTC-6)
+    offset_horas = -6
+    ahora_local = ahora_utc + datetime.timedelta(hours=offset_horas)
+    hora_formateada = ahora_local.strftime("%I:%M %p")
+    fecha_formateada = ahora_local.strftime("%d/%m/%Y")
+    
+    # Determine message
+    if ahora_hora < 18:
+        tipo = "🟢 ENTRADA"
+    else:
+        tipo = "🔴 SALIDA"
+    
+    mensaje = f"*Your Name*\n{tipo}\n⏰ {hora_formateada}\n📅 {fecha_formateada}"
+
+    url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+    payload = {
+        "token": token,
+        "to": group_id,
+        "body": mensaje
+    }
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    
+    r = requests.post(url, data=payload, headers=headers)
+    print(f"Status: {r.status_code}, Response: {r.text}")
+
+if __name__ == "__main__":
+    enviar_registro()
+```

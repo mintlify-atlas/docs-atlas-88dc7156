@@ -1,0 +1,220 @@
+---
+title: 'GitHub Actions Setup'
+description: 'Configure automated WhatsApp attendance notifications using GitHub Actions'
+---
+
+## Overview
+
+GitHub Actions allows you to run the WhatsApp attendance bot automatically on a schedule without any server infrastructure. This guide walks you through setting up the workflow.
+
+## Workflow Structure
+
+The bot uses a GitHub Actions workflow file located at `.github/workflows/main.yml`. Here's the complete configuration:
+
+```yaml main.yml
+name: Registro WhatsApp Automático
+
+on:
+  schedule:
+    # IMPORTANTE: Los horarios son en UTC. 
+    # Para México (CST): 9:00 AM es 15:00 UTC | 3:00 PM es 21:00 UTC
+    - cron: '0 15 * * 1-5'  # Lunes a Viernes 9:00 AM
+    - cron: '0 21 * * 1-5'  # Lunes a Viernes 3:00 PM
+  workflow_dispatch: # Permite ejecutarlo manualmente para probar
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Execute Script
+        env:
+          INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+          TOKEN: ${{ secrets.TOKEN }}
+          GROUP_ID: ${{ secrets.GROUP_ID }}
+        run: python bot.py
+```
+
+## Understanding the Schedule
+
+<Steps>
+  <Step title="Cron Syntax">
+    The workflow uses cron expressions to schedule executions:
+    
+    - `0 15 * * 1-5` - Runs at 15:00 UTC (9:00 AM CST) Monday through Friday
+    - `0 21 * * 1-5` - Runs at 21:00 UTC (3:00 PM CST) Monday through Friday
+    
+    <Note>
+      **Cron format:** `minute hour day-of-month month day-of-week`
+      
+      GitHub Actions uses UTC timezone by default, so you'll need to convert your local time.
+    </Note>
+  </Step>
+
+  <Step title="Time Zone Conversion">
+    Calculate your UTC offset:
+    
+    | Timezone | Offset | 9:00 AM Local | 3:00 PM Local |
+    |----------|--------|---------------|---------------|
+    | CST (Mexico) | UTC-6 | 15:00 UTC | 21:00 UTC |
+    | PST | UTC-8 | 17:00 UTC | 23:00 UTC |
+    | EST | UTC-5 | 14:00 UTC | 20:00 UTC |
+    | GMT | UTC+0 | 09:00 UTC | 15:00 UTC |
+    
+    <Warning>
+      Remember to account for Daylight Saving Time changes in your region.
+    </Warning>
+  </Step>
+
+  <Step title="Manual Trigger">
+    The `workflow_dispatch` event allows manual execution:
+    
+    1. Go to your repository on GitHub
+    2. Click **Actions** tab
+    3. Select **Registro WhatsApp Automático** workflow
+    4. Click **Run workflow** button
+    5. Select branch and click **Run workflow**
+    
+    This is useful for testing without waiting for the scheduled time.
+  </Step>
+</Steps>
+
+## Adding GitHub Secrets
+
+The workflow requires three secrets to authenticate with the UltraMsg API:
+
+<Steps>
+  <Step title="Navigate to Settings">
+    1. Go to your GitHub repository
+    2. Click **Settings** tab
+    3. In the left sidebar, expand **Secrets and variables**
+    4. Click **Actions**
+  </Step>
+
+  <Step title="Add Required Secrets">
+    Click **New repository secret** and add each of these:
+    
+    <CodeGroup>
+    ```text INSTANCE_ID
+    Your UltraMsg instance ID (e.g., instance12345)
+    ```
+    
+    ```text TOKEN
+    Your UltraMsg API token
+    ```
+    
+    ```text GROUP_ID
+    Your WhatsApp group ID (format: 521234567890-1234567890@g.us)
+    ```
+    </CodeGroup>
+    
+    <Info>
+      Secrets are encrypted and only exposed to the workflow during execution. They never appear in logs.
+    </Info>
+  </Step>
+
+  <Step title="Verify Secret Names">
+    Ensure your secret names match exactly what's in the workflow:
+    
+    ```yaml
+    env:
+      INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+      TOKEN: ${{ secrets.TOKEN }}
+      GROUP_ID: ${{ secrets.GROUP_ID }}
+    ```
+    
+    Secret names are case-sensitive.
+  </Step>
+</Steps>
+
+## Workflow Jobs Breakdown
+
+### Environment Setup
+
+The workflow runs on `ubuntu-latest` and performs these steps:
+
+1. **Checkout code** - Downloads your repository code using `actions/checkout@v3`
+2. **Set up Python** - Installs Python 3.9 using `actions/setup-python@v4`
+3. **Install dependencies** - Runs `pip install requests` to install the required library
+4. **Execute script** - Runs `python bot.py` with environment variables from secrets
+
+### Environment Variables
+
+The secrets are injected as environment variables:
+
+```yaml
+env:
+  INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+  TOKEN: ${{ secrets.TOKEN }}
+  GROUP_ID: ${{ secrets.GROUP_ID }}
+```
+
+These are accessed in `bot.py` using:
+
+```python
+instance_id = os.getenv('INSTANCE_ID')
+token = os.getenv('TOKEN')
+group_id = os.getenv('GROUP_ID')
+```
+
+## Modifying the Schedule
+
+To change when the bot runs, edit the cron expressions:
+
+<Tabs>
+  <Tab title="Different Times">
+    ```yaml
+    schedule:
+      - cron: '0 14 * * 1-5'  # 8:00 AM CST
+      - cron: '0 22 * * 1-5'  # 4:00 PM CST
+    ```
+  </Tab>
+  
+  <Tab title="Include Weekends">
+    ```yaml
+    schedule:
+      - cron: '0 15 * * *'  # Every day at 9:00 AM CST
+      - cron: '0 21 * * *'  # Every day at 3:00 PM CST
+    ```
+  </Tab>
+  
+  <Tab title="Single Daily Check-in">
+    ```yaml
+    schedule:
+      - cron: '0 15 * * 1-5'  # Only morning check-in
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Use [crontab.guru](https://crontab.guru/) to validate your cron expressions, but remember to convert to UTC.
+</Tip>
+
+## Monitoring Workflow Executions
+
+To view workflow runs:
+
+1. Go to the **Actions** tab in your repository
+2. Click on a workflow run to see details
+3. Expand the **Execute Script** step to see the bot's output
+4. Check for the status code and API response
+
+Successful executions show:
+
+```
+Status: 200, Response: {"sent":"true","message":"ok"}
+```
+
+<Warning>
+  If you see errors like `Status: 401`, verify your secrets are set correctly. If you see `Status: 404`, check your instance ID and group ID.
+</Warning>

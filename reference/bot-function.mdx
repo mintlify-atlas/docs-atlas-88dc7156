@@ -1,0 +1,226 @@
+---
+title: 'Bot Function API Reference'
+description: 'Complete reference for the enviar_registro() function'
+icon: 'code'
+---
+
+## Overview
+
+The `enviar_registro()` function is the core component of the WhatsApp Attendance Bot. It automatically sends attendance messages (check-in/check-out) to a WhatsApp group via the Ultramsg API based on the current UTC time.
+
+## Function Signature
+
+```python
+def enviar_registro() -> None
+```
+
+### Parameters
+
+The function takes no direct parameters but requires three environment variables:
+
+<ParamField path="INSTANCE_ID" type="string" required>
+  Your Ultramsg instance ID. Obtained from the Ultramsg dashboard after creating an instance.
+</ParamField>
+
+<ParamField path="TOKEN" type="string" required>
+  Your Ultramsg API token for authentication. Found in your Ultramsg instance settings.
+</ParamField>
+
+<ParamField path="GROUP_ID" type="string" required>
+  The WhatsApp group ID where messages will be sent. Format: `[country_code][phone_number]@g.us` (e.g., `521234567890@g.us`)
+</ParamField>
+
+## Source Code
+
+Location: `bot.py:5-24`
+
+```python
+def enviar_registro():
+    instance_id = os.getenv('INSTANCE_ID')
+    token = os.getenv('TOKEN')
+    group_id = os.getenv('GROUP_ID')
+    
+    # Determinar si es entrada o salida según la hora (UTC)
+    # Ejemplo: Si estás en México, 15:00 UTC es 9:00 AM
+    ahora_hora = datetime.datetime.utcnow().hour
+    mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+
+    url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+    payload = {
+        "token": token,
+        "to": group_id,
+        "body": mensaje
+    }
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    
+    r = requests.post(url, data=payload, headers=headers)
+    print(f"Status: {r.status_code}, Response: {r.text}")
+```
+
+## Function Behavior
+
+### Time-Based Logic
+
+The function determines whether to send a check-in or check-out message based on the current UTC hour:
+
+- **Check-in message**: Sent when UTC hour < 18 (before 6:00 PM UTC)
+- **Check-out message**: Sent when UTC hour >= 18 (6:00 PM UTC or later)
+
+<Note>
+  The function uses `datetime.datetime.utcnow().hour` to get the current UTC hour. For Mexico CST timezone:
+  - 15:00 UTC = 9:00 AM CST (check-in)
+  - 21:00 UTC = 3:00 PM CST (check-out)
+</Note>
+
+### Message Format
+
+The function sends one of two hardcoded messages:
+
+**Check-in (before 18:00 UTC):**
+```
+Aldo Tolentino 
+ Entrada 
+ 9:00 AM
+```
+
+**Check-out (18:00 UTC or later):**
+```
+Aldo Tolentino
+ Salida
+ 3:00 PM
+```
+
+## API Integration
+
+### Ultramsg API Endpoint
+
+The function makes a POST request to the Ultramsg chat messages endpoint:
+
+```
+https://api.ultramsg.com/{INSTANCE_ID}/messages/chat
+```
+
+### Request Payload
+
+<ParamField path="token" type="string" required>
+  Authentication token from Ultramsg
+</ParamField>
+
+<ParamField path="to" type="string" required>
+  WhatsApp group ID in the format `[country_code][phone_number]@g.us`
+</ParamField>
+
+<ParamField path="body" type="string" required>
+  The message text to send to the group
+</ParamField>
+
+### Request Headers
+
+```python
+{'content-type': 'application/x-www-form-urlencoded'}
+```
+
+## Response Handling
+
+### Success Response
+
+<ResponseField name="status_code" type="integer">
+  HTTP status code. `200` indicates success.
+</ResponseField>
+
+<ResponseField name="response" type="object">
+  JSON response from Ultramsg containing message delivery status
+</ResponseField>
+
+The function prints the response to stdout:
+
+```python
+print(f"Status: {r.status_code}, Response: {r.text}")
+```
+
+### Example Output
+
+```
+Status: 200, Response: {"sent":"true","message":"Message sent successfully"}
+```
+
+## Error Handling
+
+<Warning>
+  The function does not include explicit error handling. If environment variables are missing or the API request fails, the function will raise an exception and the script will exit.
+</Warning>
+
+Potential errors:
+
+- **Missing environment variables**: `os.getenv()` returns `None`, causing the API URL or payload to be invalid
+- **Network errors**: `requests.post()` may raise `ConnectionError` or `Timeout`
+- **API errors**: Ultramsg may return 4xx or 5xx status codes
+
+## Usage Example
+
+### Direct Execution
+
+```python
+import os
+os.environ['INSTANCE_ID'] = 'your_instance_id'
+os.environ['TOKEN'] = 'your_token'
+os.environ['GROUP_ID'] = '521234567890@g.us'
+
+enviar_registro()
+```
+
+### GitHub Actions
+
+The function is designed to be triggered automatically by GitHub Actions at scheduled times:
+
+```yaml
+- name: Execute Script
+  env:
+    INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+    TOKEN: ${{ secrets.TOKEN }}
+    GROUP_ID: ${{ secrets.GROUP_ID }}
+  run: python bot.py
+```
+
+## Dependencies
+
+- **requests**: HTTP library for making API calls (`pip install requests`)
+- **os**: Built-in Python module for environment variable access
+- **datetime**: Built-in Python module for time operations
+
+## Customization
+
+To customize the function behavior, modify these sections in `bot.py`:
+
+### Change Message Content
+
+Edit line 13:
+
+```python
+mensaje = "Your Name \n Entry \n 9:00 AM" if ahora_hora < 18 else "Your Name\n Exit\n 5:00 PM"
+```
+
+### Change Time Logic
+
+Edit line 13 to change the UTC hour threshold:
+
+```python
+# Change 18 to your desired UTC hour
+mensaje = "..." if ahora_hora < 20 else "..."
+```
+
+### Add Error Handling
+
+Wrap the function in a try-except block:
+
+```python
+def enviar_registro():
+    try:
+        instance_id = os.getenv('INSTANCE_ID')
+        if not instance_id:
+            raise ValueError("INSTANCE_ID not set")
+        # ... rest of the function
+    except Exception as e:
+        print(f"Error: {e}")
+        raise
+```

@@ -1,0 +1,289 @@
+---
+title: 'Scheduling'
+description: 'Configure cron schedules and understand timezone conversion for automated attendance messages'
+icon: 'clock'
+---
+
+## Overview
+
+The WhatsApp Attendance Bot uses GitHub Actions cron schedules to automatically send attendance messages at specific times. Understanding cron syntax and UTC timezone conversion is essential for configuring the bot to run at your desired local times.
+
+<Note>
+  GitHub Actions always uses **UTC timezone** for cron schedules. You must convert your local time to UTC when configuring schedules.
+</Note>
+
+## Current Schedule Configuration
+
+The bot is currently configured to send messages twice daily on weekdays:
+
+```yaml main.yml
+schedule:
+  # IMPORTANTE: Los horarios son en UTC. 
+  # Para México (CST): 9:00 AM es 15:00 UTC | 3:00 PM es 21:00 UTC
+  - cron: '0 15 * * 1-5'  # Lunes a Viernes 9:00 AM
+  - cron: '0 21 * * 1-5'  # Lunes a Viernes 3:00 PM
+```
+
+### Scheduled Times
+
+<CardGroup cols={2}>
+  <Card title="Morning Check-in" icon="sunrise">
+    **UTC**: 15:00 (3:00 PM)  
+    **CST/Mexico**: 9:00 AM  
+    **Days**: Monday - Friday
+    
+    Sends: "Aldo Tolentino \n Entrada \n 9:00 AM"
+  </Card>
+  
+  <Card title="Afternoon Check-out" icon="sunset">
+    **UTC**: 21:00 (9:00 PM)  
+    **CST/Mexico**: 3:00 PM  
+    **Days**: Monday - Friday
+    
+    Sends: "Aldo Tolentino\n Salida\n 3:00 PM"
+  </Card>
+</CardGroup>
+
+## Understanding Cron Syntax
+
+Cron expressions consist of five fields that specify when to run:
+
+```
+┌───────────── minute (0 - 59)
+│ ┌───────────── hour (0 - 23)
+│ │ ┌───────────── day of month (1 - 31)
+│ │ │ ┌───────────── month (1 - 12)
+│ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
+│ │ │ │ │
+│ │ │ │ │
+* * * * *
+```
+
+### Example Breakdown
+
+<ParamField path="0 15 * * 1-5" type="cron expression">
+  - **0**: At minute 0 (top of the hour)
+  - **15**: At hour 15 (3:00 PM UTC)
+  - **\***: Every day of the month
+  - **\***: Every month
+  - **1-5**: Monday through Friday (1=Monday, 5=Friday)
+  
+  **Result**: Runs at 15:00 UTC every weekday
+</ParamField>
+
+## Timezone Conversion Guide
+
+Since GitHub Actions uses UTC, you must convert your local time to UTC. Here's how the current schedule converts:
+
+### Mexico/Central Standard Time (CST/UTC-6)
+
+<Steps>
+  <Step title="Determine Your Local Time">
+    Example: You want the bot to run at **9:00 AM CST**
+  </Step>
+  
+  <Step title="Calculate UTC Offset">
+    CST is UTC-6, meaning CST is 6 hours behind UTC.
+    
+    **Formula**: UTC = Local Time + 6 hours
+  </Step>
+  
+  <Step title="Convert to UTC">
+    9:00 AM CST + 6 hours = **15:00 UTC (3:00 PM)**
+    
+    3:00 PM CST + 6 hours = **21:00 UTC (9:00 PM)**
+  </Step>
+  
+  <Step title="Apply to Cron Expression">
+    Use the UTC hour in your cron expression:
+    ```yaml
+    - cron: '0 15 * * 1-5'  # 9:00 AM CST
+    - cron: '0 21 * * 1-5'  # 3:00 PM CST
+    ```
+  </Step>
+</Steps>
+
+### Common Timezone Conversions
+
+<Info>
+  Use this table to convert common timezones to UTC for your cron schedules.
+</Info>
+
+| Timezone | Offset | 9:00 AM Local | 3:00 PM Local | 9:00 AM in UTC | 3:00 PM in UTC |
+|----------|--------|---------------|---------------|----------------|----------------|
+| **CST** (Mexico) | UTC-6 | 9:00 AM | 3:00 PM | 15:00 | 21:00 |
+| **EST** (US East) | UTC-5 | 9:00 AM | 3:00 PM | 14:00 | 20:00 |
+| **PST** (US West) | UTC-8 | 9:00 AM | 3:00 PM | 17:00 | 23:00 |
+| **GMT** (UK) | UTC+0 | 9:00 AM | 3:00 PM | 09:00 | 15:00 |
+| **CET** (Central Europe) | UTC+1 | 9:00 AM | 3:00 PM | 08:00 | 14:00 |
+| **IST** (India) | UTC+5:30 | 9:00 AM | 3:00 PM | 03:30 | 09:30 |
+
+<Warning>
+  Remember to account for Daylight Saving Time (DST) if your region observes it. During DST, your offset to UTC changes by 1 hour.
+</Warning>
+
+## How Message Content Is Determined
+
+The bot uses UTC hour to determine whether to send a check-in or check-out message:
+
+```python bot.py
+# Determinar si es entrada o salida según la hora (UTC)
+# Ejemplo: Si estás en México, 15:00 UTC es 9:00 AM
+ahora_hora = datetime.datetime.utcnow().hour
+mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+```
+
+**Logic**:
+- If UTC hour < 18 (before 6:00 PM UTC): Send "Entrada" (Check-in) message
+- If UTC hour >= 18 (6:00 PM UTC or later): Send "Salida" (Check-out) message
+
+<Tip>
+  The 18:00 UTC threshold works for CST schedules. If you change timezones, you may need to adjust this threshold in `bot.py` to ensure correct message content.
+</Tip>
+
+## Customizing Your Schedule
+
+### Change Running Times
+
+To modify when the bot runs, edit `.github/workflows/main.yml`:
+
+```yaml
+schedule:
+  - cron: '0 14 * * 1-5'  # Example: 8:00 AM CST (14:00 UTC)
+  - cron: '0 22 * * 1-5'  # Example: 4:00 PM CST (22:00 UTC)
+```
+
+### Add Weekend Runs
+
+To include Saturday and Sunday:
+
+```yaml
+schedule:
+  - cron: '0 15 * * 0-6'  # 0-6 includes all days (Sunday-Saturday)
+  - cron: '0 21 * * 0-6'
+```
+
+### Add Additional Check-ins
+
+For a third daily message (e.g., lunch break):
+
+```yaml
+schedule:
+  - cron: '0 15 * * 1-5'  # Morning
+  - cron: '0 18 * * 1-5'  # Noon CST (18:00 UTC = 12:00 PM CST)
+  - cron: '0 21 * * 1-5'  # Afternoon
+```
+
+<Note>
+  If you add additional schedules, you'll need to modify the message logic in `bot.py` to send appropriate content for each time.
+</Note>
+
+### Monthly or Specific Date Runs
+
+```yaml
+# Run only on the first day of each month
+- cron: '0 15 1 * 1-5'
+
+# Run only in specific months (e.g., January, June, December)
+- cron: '0 15 * 1,6,12 1-5'
+```
+
+## Manual Workflow Execution
+
+The workflow includes `workflow_dispatch` to allow manual triggering:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 15 * * 1-5'
+    - cron: '0 21 * * 1-5'
+  workflow_dispatch: # Permite ejecutarlo manualmente para probar
+```
+
+### Running Manually
+
+<Steps>
+  <Step title="Navigate to Actions Tab">
+    Go to your GitHub repository and click the **Actions** tab.
+  </Step>
+  
+  <Step title="Select Workflow">
+    Click on "Registro WhatsApp Automático" in the workflows list.
+  </Step>
+  
+  <Step title="Run Workflow">
+    Click the **Run workflow** dropdown button, then click **Run workflow** to execute immediately.
+  </Step>
+  
+  <Step title="Verify Execution">
+    Check the workflow run logs and verify the message in your WhatsApp group.
+  </Step>
+</Steps>
+
+<Tip>
+  Manual execution is useful for testing configuration changes without waiting for the scheduled time.
+</Tip>
+
+## Cron Schedule Reliability
+
+<Warning>
+  GitHub Actions cron schedules may experience delays during high-load periods. Schedules are not guaranteed to run at the exact specified time.
+</Warning>
+
+**Typical delay**: 3-10 minutes during peak times
+
+**Best practices**:
+- Don't rely on exact second-precision timing
+- Schedule critical tasks with buffer time
+- Use manual dispatch for time-sensitive tests
+
+## Testing Your Schedule
+
+### Verify Cron Expression
+
+Use online tools to validate your cron syntax:
+- [crontab.guru](https://crontab.guru/) - Interactive cron expression explainer
+- [crontab-generator.org](https://crontab-generator.org/) - Visual cron schedule builder
+
+### Test Before Committing
+
+1. Use the manual workflow dispatch to test immediately
+2. Check workflow logs for execution time and output
+3. Verify the message appears in your WhatsApp group
+4. Confirm the message content matches the expected check-in/check-out
+
+## Troubleshooting
+
+### Workflow Not Running
+
+**Check these common issues**:
+- Ensure the schedule is in the `main` or default branch
+- Verify cron syntax is valid (no syntax errors)
+- Confirm the repository has Actions enabled (Settings > Actions > General)
+- Check if you've reached GitHub Actions usage limits
+
+### Wrong Message Time
+
+**Possible causes**:
+- Incorrect UTC conversion (recalculate your timezone offset)
+- Daylight Saving Time not accounted for
+- GitHub Actions delay (check actual execution time in logs)
+
+### Wrong Message Content
+
+**Solution**:
+- Review the hour threshold in `bot.py:13`
+- Adjust the `ahora_hora < 18` condition for your timezone
+- Test with manual dispatch at different times
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="key" href="/configuration/environment-variables">
+    Configure required credentials for the bot
+  </Card>
+  
+  <Card title="Customization" icon="code" href="/guides/customizing-messages">
+    Modify message content and formatting
+  </Card>
+</CardGroup>

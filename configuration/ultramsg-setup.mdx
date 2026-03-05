@@ -1,0 +1,448 @@
+---
+title: 'Ultramsg Setup'
+description: 'Step-by-step guide to creating an Ultramsg account and obtaining API credentials'
+icon: 'whatsapp'
+---
+
+## Overview
+
+Ultramsg is a WhatsApp API service that enables programmatic sending of WhatsApp messages. The WhatsApp Attendance Bot uses Ultramsg to deliver automated attendance messages to your designated WhatsApp group.
+
+<Info>
+  Ultramsg offers a free tier with limited messages per month, suitable for testing and small-scale deployments.
+</Info>
+
+## Why Ultramsg?
+
+The bot uses Ultramsg because it provides:
+
+- **Simple REST API**: Easy integration with Python using the `requests` library
+- **No Official WhatsApp Business Account Required**: Works with regular WhatsApp accounts
+- **Group Messaging Support**: Can send messages to WhatsApp groups
+- **Free Tier Available**: Perfect for automated attendance tracking with limited daily messages
+
+## Creating Your Ultramsg Account
+
+<Steps>
+  <Step title="Visit Ultramsg Website">
+    Navigate to [https://ultramsg.com](https://ultramsg.com) in your web browser.
+  </Step>
+  
+  <Step title="Sign Up">
+    Click the **Sign Up** or **Register** button and provide:
+    - Email address
+    - Password
+    - Accept terms of service
+    
+    Click **Register** to create your account.
+  </Step>
+  
+  <Step title="Verify Email">
+    Check your email inbox for a verification message from Ultramsg. Click the verification link to activate your account.
+  </Step>
+  
+  <Step title="Log In">
+    Return to [ultramsg.com](https://ultramsg.com) and log in with your credentials.
+  </Step>
+</Steps>
+
+## Creating a WhatsApp Instance
+
+An "instance" in Ultramsg represents a connection to a WhatsApp account. You'll need to create one and connect it to your WhatsApp.
+
+<Steps>
+  <Step title="Navigate to Dashboard">
+    After logging in, you'll be directed to your Ultramsg dashboard.
+  </Step>
+  
+  <Step title="Create New Instance">
+    Click **Create Instance** or **Add Instance** button.
+    
+    Provide a name for your instance (e.g., "Attendance Bot").
+  </Step>
+  
+  <Step title="Connect WhatsApp">
+    Ultramsg will display a QR code. Follow these steps:
+    
+    1. Open WhatsApp on your phone
+    2. Go to **Settings** > **Linked Devices**
+    3. Tap **Link a Device**
+    4. Scan the QR code displayed on Ultramsg
+    
+    <Warning>
+      The WhatsApp account you connect must remain active and connected to the internet for the bot to send messages.
+    </Warning>
+  </Step>
+  
+  <Step title="Verify Connection">
+    Once connected, Ultramsg will show your instance as **Active** or **Connected**.
+    
+    Your instance is now ready to send messages!
+  </Step>
+</Steps>
+
+## Obtaining API Credentials
+
+After creating and connecting your instance, you need to retrieve three pieces of information for the bot configuration.
+
+### 1. Instance ID
+
+<Steps>
+  <Step title="Open Instance Details">
+    In your Ultramsg dashboard, click on your instance name or the **View** button.
+  </Step>
+  
+  <Step title="Locate Instance ID">
+    Look for a field labeled **Instance ID** or **Instance Number**.
+    
+    **Format**: Usually looks like `instance12345` or a numeric ID.
+    
+    <Tip>
+      Copy this value exactly as shown. This will be your `INSTANCE_ID` environment variable.
+    </Tip>
+  </Step>
+</Steps>
+
+### 2. API Token
+
+<Steps>
+  <Step title="Find API Section">
+    In the instance details page, locate the **API** or **API Token** section.
+  </Step>
+  
+  <Step title="Copy Token">
+    Find the **Token** field and copy the entire value.
+    
+    **Format**: A long alphanumeric string (e.g., `abcdef123456789ghijklmnop`).
+    
+    <Warning>
+      Keep your token secure! Anyone with this token can send messages from your WhatsApp account.
+    </Warning>
+    
+    This will be your `TOKEN` environment variable.
+  </Step>
+</Steps>
+
+### 3. WhatsApp Group ID
+
+You need to obtain the ID of the WhatsApp group where attendance messages will be sent.
+
+<Steps>
+  <Step title="Send Test Message to Group">
+    Using your phone, send any message to the WhatsApp group where you want attendance messages delivered.
+  </Step>
+  
+  <Step title="Access Webhook or Chat List">
+    In Ultramsg dashboard:
+    - Go to **Chats** or **Messages** section
+    - Or check **Webhooks** > **Messages Log**
+  </Step>
+  
+  <Step title="Find Group ID">
+    Look for your group in the chat list. The Group ID will be displayed next to or under the group name.
+    
+    **Format**: `521234567890-1234567890@g.us`
+    
+    **Structure**:
+    - Starts with country code + phone number of group creator
+    - Contains a dash followed by more numbers
+    - Ends with `@g.us` (indicating it's a group)
+    
+    <Note>
+      Individual chat IDs end with `@c.us`, while group IDs end with `@g.us`.
+    </Note>
+  </Step>
+  
+  <Step title="Alternative Method: API Request">
+    You can also retrieve the Group ID programmatically:
+    
+    ```bash
+    curl -X GET "https://api.ultramsg.com/YOUR_INSTANCE_ID/chats" \
+      -H "Content-Type: application/json" \
+      -d '{"token": "YOUR_TOKEN"}'
+    ```
+    
+    Look for your group name in the response to find its ID.
+  </Step>
+</Steps>
+
+## Testing Your Connection
+
+Before configuring the bot, test that your credentials work correctly.
+
+### Using Ultramsg Dashboard
+
+<Steps>
+  <Step title="Go to Send Message">
+    In your Ultramsg instance dashboard, find **Send Message** or **Test API** section.
+  </Step>
+  
+  <Step title="Configure Test Message">
+    - **To**: Enter your GROUP_ID
+    - **Message**: Enter any test message
+    - Click **Send**
+  </Step>
+  
+  <Step title="Verify Receipt">
+    Check your WhatsApp group. The message should appear from your connected WhatsApp account.
+  </Step>
+</Steps>
+
+### Using cURL Command
+
+```bash
+curl -X POST "https://api.ultramsg.com/YOUR_INSTANCE_ID/messages/chat" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "token=YOUR_TOKEN&to=YOUR_GROUP_ID&body=Test message from Ultramsg"
+```
+
+Replace:
+- `YOUR_INSTANCE_ID` with your Instance ID
+- `YOUR_TOKEN` with your API Token
+- `YOUR_GROUP_ID` with your Group ID
+
+**Expected response**:
+```json
+{
+  "sent": "true",
+  "message": "ok",
+  "id": "message_id_here"
+}
+```
+
+### Using Python
+
+Test the exact code used by the bot:
+
+```python test_ultramsg.py
+import requests
+
+instance_id = "YOUR_INSTANCE_ID"
+token = "YOUR_TOKEN"
+group_id = "YOUR_GROUP_ID"
+
+url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+payload = {
+    "token": token,
+    "to": group_id,
+    "body": "Test message from Python"
+}
+headers = {'content-type': 'application/x-www-form-urlencoded'}
+
+r = requests.post(url, data=payload, headers=headers)
+print(f"Status: {r.status_code}, Response: {r.text}")
+```
+
+Run:
+```bash
+python test_ultramsg.py
+```
+
+<Tip>
+  If you receive a successful response (status 200) and see the message in your WhatsApp group, your credentials are correct!
+</Tip>
+
+## API Endpoint Used by the Bot
+
+The bot constructs the API URL and makes POST requests as follows:
+
+```python bot.py
+url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+payload = {
+    "token": token,
+    "to": group_id,
+    "body": mensaje
+}
+headers = {'content-type': 'application/x-www-form-urlencoded'}
+
+r = requests.post(url, data=payload, headers=headers)
+```
+
+**API Endpoint**: `https://api.ultramsg.com/{instance_id}/messages/chat`
+
+**Method**: POST
+
+**Headers**: `Content-Type: application/x-www-form-urlencoded`
+
+**Payload Parameters**:
+- `token`: Your API token for authentication
+- `to`: Recipient (group ID or individual ID)
+- `body`: Message text content
+
+## Managing Your Ultramsg Account
+
+### Monitoring Usage
+
+<Steps>
+  <Step title="Check Dashboard">
+    Your Ultramsg dashboard displays:
+    - Total messages sent
+    - Remaining message quota
+    - Active instance status
+  </Step>
+  
+  <Step title="Review Message Logs">
+    Go to **Messages** or **Logs** to see:
+    - All sent messages
+    - Delivery status
+    - Timestamps
+    - API request details
+  </Step>
+</Steps>
+
+### Upgrading Your Plan
+
+If you exceed the free tier limits:
+
+<CardGroup cols={2}>
+  <Card title="Free Tier" icon="gift">
+    - Limited messages per month
+    - 1 instance
+    - Basic support
+    - Perfect for testing
+  </Card>
+  
+  <Card title="Paid Plans" icon="credit-card">
+    - Higher message quotas
+    - Multiple instances
+    - Priority support
+    - Advanced features
+  </Card>
+</CardGroup>
+
+To upgrade:
+1. Go to **Billing** or **Plans** in your dashboard
+2. Select a plan that meets your needs
+3. Complete payment
+
+### Keeping Your Instance Active
+
+<Warning>
+  Your WhatsApp connection may disconnect if:
+  - Your phone is offline for extended periods
+  - You unlink the device from WhatsApp
+  - WhatsApp detects unusual activity
+</Warning>
+
+**Best practices**:
+- Keep your phone connected to the internet
+- Regularly check instance status in Ultramsg dashboard
+- Don't spam or send excessive messages
+- Follow WhatsApp's terms of service
+
+## Security Considerations
+
+<CardGroup cols={2}>
+  <Card title="Protect Your Token" icon="shield">
+    Never share your API token publicly or commit it to version control. Always use environment variables.
+  </Card>
+  
+  <Card title="Secure Your Account" icon="lock">
+    Use a strong password for your Ultramsg account and enable 2FA if available.
+  </Card>
+  
+  <Card title="Monitor Activity" icon="eye">
+    Regularly review message logs for unauthorized API usage.
+  </Card>
+  
+  <Card title="Rotate Credentials" icon="rotate">
+    Periodically regenerate your API token and update it in GitHub Secrets.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Instance Not Connecting
+
+**Solutions**:
+- Ensure your phone has stable internet connection
+- Try unlinking and re-linking using a new QR code
+- Restart WhatsApp on your phone
+- Check if WhatsApp has any pending updates
+
+### Messages Not Sending
+
+**Check**:
+- Instance status is "Active" or "Connected" in dashboard
+- API token is correct and hasn't been regenerated
+- Group ID format includes `@g.us` suffix
+- You haven't exceeded your message quota
+- Your phone's WhatsApp is running and connected
+
+### Invalid Token Error
+
+**Solutions**:
+- Verify you copied the complete token without spaces
+- Check if token was regenerated (old token becomes invalid)
+- Ensure token is passed in the correct parameter (`token` in payload)
+
+### Group Not Found Error
+
+**Solutions**:
+- Verify Group ID format: `XXXXXXXXXX-XXXXXXXXXX@g.us`
+- Confirm the connected WhatsApp account is a member of the group
+- Try retrieving the Group ID again using the API
+- Ensure there are no extra spaces in the Group ID
+
+## Rate Limits and Best Practices
+
+<Info>
+  Ultramsg and WhatsApp impose rate limits to prevent spam. Follow these guidelines to avoid issues.
+</Info>
+
+**Recommended practices**:
+- Don't send more than 1 message per minute to the same chat
+- Space out messages if sending to multiple groups
+- Avoid sending identical messages repeatedly
+- Keep message content varied and natural
+
+**Current bot behavior**:
+- Sends 2 messages per day (morning and afternoon)
+- Only on weekdays (Monday-Friday)
+- To a single group
+- Well within rate limits
+
+## Next Steps
+
+Once you have your Ultramsg credentials:
+
+<Steps>
+  <Step title="Save Credentials">
+    Write down or securely store:
+    - Instance ID
+    - API Token
+    - Group ID
+  </Step>
+  
+  <Step title="Configure GitHub Secrets">
+    Add these values as environment variables in your repository.
+    
+    [See Environment Variables Guide →](/configuration/environment-variables)
+  </Step>
+  
+  <Step title="Test the Bot">
+    Use manual workflow dispatch to test the complete setup.
+    
+    [See Scheduling Guide →](/configuration/scheduling)
+  </Step>
+</Steps>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Ultramsg Documentation" icon="book" href="https://docs.ultramsg.com">
+    Official API documentation and reference
+  </Card>
+  
+  <Card title="Ultramsg Support" icon="life-ring" href="https://ultramsg.com/support">
+    Contact support for account-specific issues
+  </Card>
+  
+  <Card title="Environment Variables" icon="key" href="/configuration/environment-variables">
+    Configure your bot credentials
+  </Card>
+  
+  <Card title="Bot Function Reference" icon="code" href="/reference/bot-function">
+    Detailed bot function documentation
+  </Card>
+</CardGroup>

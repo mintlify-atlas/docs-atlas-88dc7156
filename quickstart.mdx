@@ -1,80 +1,228 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quickstart'
+description: 'Get your WhatsApp attendance bot up and running in 5 minutes'
 ---
 
-## Get started in three steps
+This guide will walk you through setting up your automated WhatsApp attendance bot. You'll have a working bot that sends scheduled messages to your WhatsApp group via GitHub Actions.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you have:
+- A GitHub account
+- A WhatsApp account and phone number
+- Access to create a WhatsApp group (if you don't have one already)
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
 
-### Step 2: Deploy your changes
+<Step title="Fork the Repository">
+  Start by forking the WhatsApp Attendance Bot repository to your GitHub account:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  1. Visit the repository on GitHub
+  2. Click the **Fork** button in the top-right corner
+  3. Select your account as the destination
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Tip>
+    Forking creates your own copy of the repository, allowing you to configure it with your credentials without affecting the original project.
+  </Tip>
+</Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+<Step title="Set Up Ultramsg Account">
+  Ultramsg is the service that will send WhatsApp messages on your behalf.
 
-### Step 3: Go live
+  1. Go to [ultramsg.com](https://ultramsg.com) and create a free account
+  2. After logging in, click **Create Instance**
+  3. Follow the instructions to connect your WhatsApp number by scanning the QR code
+  4. Once connected, note down your **Instance ID** (found in the dashboard)
+  5. Navigate to the API section and copy your **API Token**
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Warning>
+    Keep your Instance ID and Token secure. Never commit them directly to your repository.
+  </Warning>
+</Step>
 
-## Next steps
+<Step title="Get Your WhatsApp Group ID">
+  You need the Group ID where the bot will send attendance messages.
 
-Now that you have your docs running, explore these key features:
+  1. In your Ultramsg dashboard, go to **Chat ID** or **Get Chat ID**
+  2. Send a message to your target WhatsApp group from your connected phone
+  3. The group ID will appear in the Ultramsg dashboard (format: `120363XXXXXXXXXX@g.us`)
+  4. Copy this Group ID for the next step
+
+  <Info>
+    The Group ID is a unique identifier for your WhatsApp group. Make sure you're getting the ID for the correct group.
+  </Info>
+</Step>
+
+<Step title="Configure GitHub Secrets">
+  Store your credentials securely as GitHub repository secrets:
+
+  1. Go to your forked repository on GitHub
+  2. Click **Settings** → **Secrets and variables** → **Actions**
+  3. Click **New repository secret** and add these three secrets:
+
+  | Secret Name | Value | Description |
+  |------------|-------|-------------|
+  | `INSTANCE_ID` | Your Ultramsg Instance ID | From Ultramsg dashboard |
+  | `TOKEN` | Your Ultramsg API Token | From Ultramsg API section |
+  | `GROUP_ID` | Your WhatsApp Group ID | Format: `120363XXXXXXXXXX@g.us` |
+
+  <Note>
+    These secrets are automatically injected into your GitHub Actions workflow as environment variables.
+  </Note>
+</Step>
+
+<Step title="Enable GitHub Actions">
+  By default, GitHub Actions might be disabled on forked repositories.
+
+  1. In your repository, go to the **Actions** tab
+  2. If prompted, click **I understand my workflows, go ahead and enable them**
+  3. You should see the workflow named "Registro WhatsApp Automático"
+
+  The workflow is configured to run automatically:
+  - **9:00 AM** (your timezone) - Sends "Entrada" (entry) message
+  - **3:00 PM** (your timezone) - Sends "Salida" (exit) message
+  - **Monday to Friday only** (no weekend messages)
+
+  <Warning>
+    The cron schedule in the workflow uses UTC time. You may need to adjust the times based on your timezone. See the Configuration guide for details.
+  </Warning>
+</Step>
+
+<Step title="Test the Bot Manually">
+  Before waiting for the scheduled time, test that everything works:
+
+  1. Go to the **Actions** tab in your repository
+  2. Click on **Registro WhatsApp Automático** workflow
+  3. Click **Run workflow** dropdown on the right
+  4. Click the green **Run workflow** button
+  5. Wait a few seconds and refresh the page
+  6. Click on the running workflow to see its progress
+
+  The workflow will:
+  - Checkout your code
+  - Set up Python 3.9
+  - Install the `requests` library
+  - Execute the bot script with your secrets
+
+  <CodeGroup>
+  ```yaml GitHub Actions Workflow
+  name: Registro WhatsApp Automático
+
+  on:
+    schedule:
+      # IMPORTANTE: Los horarios son en UTC. 
+      # Para México (CST): 9:00 AM es 15:00 UTC | 3:00 PM es 21:00 UTC
+      - cron: '0 15 * * 1-5'  # Lunes a Viernes 9:00 AM
+      - cron: '0 21 * * 1-5'  # Lunes a Viernes 3:00 PM
+    workflow_dispatch: # Permite ejecutarlo manualmente para probar
+
+  jobs:
+    run-bot:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v3
+
+        - name: Set up Python
+          uses: actions/setup-python@v4
+          with:
+            python-version: '3.9'
+
+        - name: Install dependencies
+          run: pip install requests
+
+        - name: Execute Script
+          env:
+            INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+            TOKEN: ${{ secrets.TOKEN }}
+            GROUP_ID: ${{ secrets.GROUP_ID }}
+          run: python bot.py
+  ```
+
+  ```python bot.py
+  import requests
+  import os
+  import datetime
+
+  def enviar_registro():
+      instance_id = os.getenv('INSTANCE_ID')
+      token = os.getenv('TOKEN')
+      group_id = os.getenv('GROUP_ID')
+      
+      # Determinar si es entrada o salida según la hora (UTC)
+      # Ejemplo: Si estás en México, 15:00 UTC es 9:00 AM
+      ahora_hora = datetime.datetime.utcnow().hour
+      mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+
+      url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+      payload = {
+          "token": token,
+          "to": group_id,
+          "body": mensaje
+      }
+      headers = {'content-type': 'application/x-www-form-urlencoded'}
+      
+      r = requests.post(url, data=payload, headers=headers)
+      print(f"Status: {r.status_code}, Response: {r.text}")
+
+  if __name__ == "__main__":
+      enviar_registro()
+  ```
+  </CodeGroup>
+</Step>
+
+<Step title="Verify the Message">
+  Check your WhatsApp group to confirm the bot sent a message:
+
+  1. Open WhatsApp on your phone or desktop
+  2. Navigate to the group you configured
+  3. You should see a message from your connected number with attendance information
+
+  The message format depends on the time:
+  - **Before 6:00 PM UTC**: "Aldo Tolentino \n Entrada \n 9:00 AM"
+  - **After 6:00 PM UTC**: "Aldo Tolentino\n Salida\n 3:00 PM"
+
+  <Tip>
+    If the message didn't arrive, check the Actions workflow logs for error messages. Common issues include incorrect credentials or Group ID format.
+  </Tip>
+</Step>
+
+</Steps>
+
+## What's Next?
+
+Your bot is now running! Here's what you can do next:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Customize Messages" icon="message" href="/guides/customizing-messages">
+    Learn how to customize the message format, name, and times
+  </Card>
+  
+  <Card title="Adjust Schedule" icon="clock" href="/configuration/scheduling">
+    Change the cron schedule to match your work hours and timezone
+  </Card>
+  
+  <Card title="Troubleshooting" icon="wrench" href="/reference/troubleshooting">
+    Fix common issues and understand error messages
+  </Card>
+  
+  <Card title="FAQ" icon="question" href="/reference/faq">
+    Find answers to frequently asked questions
+  </Card>
 </CardGroup>
 
+## Quick Troubleshooting
+
+If something isn't working, check these common issues:
+
+| Issue | Solution |
+|-------|----------|
+| No message received | Verify all three secrets are set correctly in GitHub |
+| Wrong group receiving messages | Double-check the GROUP_ID format (`XXXXXXXXXX@g.us`) |
+| Messages at wrong times | Adjust cron schedule for your timezone (it uses UTC) |
+| Workflow not running | Ensure GitHub Actions is enabled in your forked repo |
+| "Unauthorized" error | Regenerate your Ultramsg API token and update the secret |
+
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  The bot determines whether to send "Entrada" or "Salida" based on UTC time. If the hour is before 18:00 UTC, it sends "Entrada", otherwise "Salida".
 </Note>

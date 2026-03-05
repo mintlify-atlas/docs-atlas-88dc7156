@@ -1,0 +1,427 @@
+---
+title: 'Testing & Troubleshooting'
+description: 'How to test the bot manually and troubleshoot common issues'
+---
+
+## Overview
+
+Before relying on the automated schedule, it's important to test your bot configuration. This guide covers manual testing and troubleshooting common problems.
+
+## Manual Testing with workflow_dispatch
+
+The workflow includes `workflow_dispatch` which allows manual execution:
+
+```yaml .github/workflows/main.yml
+on:
+  schedule:
+    - cron: '0 15 * * 1-5'
+    - cron: '0 21 * * 1-5'
+  workflow_dispatch: # Permite ejecutarlo manualmente para probar
+```
+
+### Running Manually on GitHub
+
+<Steps>
+  <Step title="Navigate to Actions">
+    1. Go to your GitHub repository
+    2. Click the **Actions** tab at the top
+    3. You'll see a list of workflows on the left sidebar
+  </Step>
+
+  <Step title="Select Workflow">
+    Click on **Registro WhatsApp Automático** (or your workflow name) in the left sidebar.
+  </Step>
+
+  <Step title="Run Workflow">
+    1. Click the **Run workflow** dropdown button (top right)
+    2. Select the branch (usually `main` or `master`)
+    3. Click the green **Run workflow** button
+    
+    <Info>
+      The workflow will start immediately and typically completes in 10-20 seconds.
+    </Info>
+  </Step>
+
+  <Step title="View Results">
+    1. Wait a few seconds for the run to appear
+    2. Click on the workflow run
+    3. Click on the **run-bot** job
+    4. Expand the **Execute Script** step
+    5. Check the output for status and response
+  </Step>
+</Steps>
+
+### Expected Output
+
+A successful run shows:
+
+```
+Run python bot.py
+Status: 200, Response: {"sent":"true","message":"ok","id":"..."}
+```
+
+<Tip>
+  The message sent depends on the current UTC time. If you run it before 18:00 UTC, it sends the "Entrada" message. After 18:00 UTC, it sends "Salida".
+</Tip>
+
+## Local Testing
+
+For faster iteration, test the bot locally before pushing to GitHub:
+
+### Setup Local Environment
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/your-username/your-repo.git
+    cd your-repo
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ```bash
+    pip install requests
+    ```
+  </Step>
+
+  <Step title="Set Environment Variables">
+    Create a `.env` file or export variables:
+    
+    <Tabs>
+      <Tab title="Linux/Mac">
+        ```bash
+        export INSTANCE_ID="your_instance_id"
+        export TOKEN="your_token"
+        export GROUP_ID="your_group_id"
+        ```
+      </Tab>
+      
+      <Tab title="Windows (CMD)">
+        ```cmd
+        set INSTANCE_ID=your_instance_id
+        set TOKEN=your_token
+        set GROUP_ID=your_group_id
+        ```
+      </Tab>
+      
+      <Tab title="Windows (PowerShell)">
+        ```powershell
+        $env:INSTANCE_ID="your_instance_id"
+        $env:TOKEN="your_token"
+        $env:GROUP_ID="your_group_id"
+        ```
+      </Tab>
+    </Tabs>
+    
+    <Warning>
+      Never commit your actual credentials to the repository. Add `.env` to your `.gitignore` file.
+    </Warning>
+  </Step>
+
+  <Step title="Run the Script">
+    ```bash
+    python bot.py
+    ```
+    
+    You should see output like:
+    ```
+    Status: 200, Response: {"sent":"true","message":"ok"}
+    ```
+  </Step>
+</Steps>
+
+### Testing Different Time Conditions
+
+Since the message depends on UTC hour, you can temporarily modify the logic for testing:
+
+```python bot.py
+# Original code
+ahora_hora = datetime.datetime.utcnow().hour
+mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+
+# For testing - force "Entrada" message
+ahora_hora = 10  # Simulate morning
+mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+
+# For testing - force "Salida" message  
+ahora_hora = 20  # Simulate evening
+mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+```
+
+<Note>
+  Remember to revert these changes before committing to GitHub.
+</Note>
+
+## Troubleshooting Common Issues
+
+### Issue: 401 Unauthorized
+
+**Symptoms:**
+```
+Status: 401, Response: {"error":"Unauthorized"}
+```
+
+**Causes and Solutions:**
+
+<Steps>
+  <Step title="Check TOKEN Secret">
+    1. Go to repository **Settings** > **Secrets and variables** > **Actions**
+    2. Verify `TOKEN` secret exists and is not expired
+    3. Update the token if needed from your UltraMsg dashboard
+  </Step>
+
+  <Step title="Verify Instance ID">
+    The `INSTANCE_ID` must match your active UltraMsg instance:
+    
+    1. Log in to [UltraMsg dashboard](https://ultramsg.com/)
+    2. Check your instance ID (format: `instance12345`)
+    3. Update the `INSTANCE_ID` secret if it's incorrect
+  </Step>
+</Steps>
+
+### Issue: 404 Not Found
+
+**Symptoms:**
+```
+Status: 404, Response: {"error":"Chat not found"}
+```
+
+**Causes and Solutions:**
+
+<Steps>
+  <Step title="Verify Group ID Format">
+    WhatsApp group IDs must follow the format:
+    ```
+    521234567890-1234567890@g.us
+    ```
+    
+    - Must include country code (e.g., `52` for Mexico)
+    - Must end with `@g.us` for groups
+    - Must include the group unique identifier after the dash
+  </Step>
+
+  <Step title="Get Correct Group ID">
+    To find your group ID:
+    
+    1. Send a test message to the group through UltraMsg dashboard
+    2. Use the UltraMsg API to list chats:
+    ```bash
+    curl "https://api.ultramsg.com/{instance_id}/chats?token={token}"
+    ```
+    3. Find your group in the response and copy its ID
+  </Step>
+</Steps>
+
+### Issue: Workflow Not Running on Schedule
+
+**Symptoms:**
+- Workflow doesn't execute at scheduled times
+- No runs appear in Actions tab
+
+**Causes and Solutions:**
+
+<Steps>
+  <Step title="Check Workflow File Location">
+    Ensure the workflow file is at:
+    ```
+    .github/workflows/main.yml
+    ```
+    
+    The `.github/workflows/` directory must be at the root of your repository.
+  </Step>
+
+  <Step title="Verify YAML Syntax">
+    Invalid YAML prevents the workflow from running:
+    
+    1. Go to **Actions** tab
+    2. Look for syntax error messages
+    3. Use a YAML validator to check your file
+    
+    <Tip>
+      GitHub shows a red X next to the file in the repository if there's a syntax error.
+    </Tip>
+  </Step>
+
+  <Step title="Check Repository Activity">
+    GitHub may disable scheduled workflows for inactive repositories:
+    
+    1. Make a commit to re-enable workflows
+    2. Ensure the repository isn't archived
+    3. Verify workflows are enabled in **Settings** > **Actions** > **General**
+  </Step>
+
+  <Step title="Understand Schedule Delays">
+    GitHub Actions scheduled workflows may have delays:
+    
+    - Typically run within 5-15 minutes of scheduled time
+    - During high load, delays can be longer
+    - Not guaranteed to be exact
+    
+    <Info>
+      For critical time-sensitive notifications, consider using an external service with webhooks.
+    </Info>
+  </Step>
+</Steps>
+
+### Issue: Wrong Message Sent
+
+**Symptoms:**
+- "Salida" message sent in the morning
+- "Entrada" message sent in the evening
+
+**Causes and Solutions:**
+
+<Steps>
+  <Step title="Check Time Threshold Logic">
+    The condition at `bot.py:13` determines the message:
+    
+    ```python
+    ahora_hora = datetime.datetime.utcnow().hour
+    mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+    ```
+    
+    - If UTC hour < 18 → "Entrada"
+    - If UTC hour ≥ 18 → "Salida"
+  </Step>
+
+  <Step title="Verify Schedule Times">
+    Check your cron schedule matches your timezone:
+    
+    ```yaml
+    schedule:
+      - cron: '0 15 * * 1-5'  # Should be morning in your timezone
+      - cron: '0 21 * * 1-5'  # Should be evening in your timezone
+    ```
+    
+    For CST (UTC-6):
+    - `15:00 UTC` = `9:00 AM CST` (before 18:00 UTC ✓)
+    - `21:00 UTC` = `3:00 PM CST` (after 18:00 UTC ✓)
+  </Step>
+
+  <Step title="Adjust Threshold if Needed">
+    If your afternoon run is before 18:00 UTC, adjust the threshold:
+    
+    ```python
+    # If your afternoon run is at 17:00 UTC (e.g., 9:00 AM PST)
+    mensaje = "Name \n Entrada \n 9:00 AM" if ahora_hora < 12 else "Name\n Salida\n 3:00 PM"
+    ```
+  </Step>
+</Steps>
+
+### Issue: Environment Variables Not Found
+
+**Symptoms:**
+```python
+AttributeError: 'NoneType' object has no attribute '...'
+```
+
+**Causes and Solutions:**
+
+<Steps>
+  <Step title="Verify Secret Names">
+    In `.github/workflows/main.yml`, check the environment variable mapping:
+    
+    ```yaml
+    env:
+      INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+      TOKEN: ${{ secrets.TOKEN }}
+      GROUP_ID: ${{ secrets.GROUP_ID }}
+    ```
+    
+    Secret names are case-sensitive and must match exactly.
+  </Step>
+
+  <Step title="Confirm Secrets Exist">
+    1. Go to **Settings** > **Secrets and variables** > **Actions**
+    2. Verify all three secrets are listed
+    3. Re-add any missing secrets
+  </Step>
+
+  <Step title="Check for Typos in bot.py">
+    Ensure environment variable names match:
+    
+    ```python
+    instance_id = os.getenv('INSTANCE_ID')  # Must match workflow
+    token = os.getenv('TOKEN')
+    group_id = os.getenv('GROUP_ID')
+    ```
+  </Step>
+</Steps>
+
+## Debugging Tips
+
+### Add Debug Output
+
+Add print statements to understand what's happening:
+
+```python
+import requests
+import os
+import datetime
+
+def enviar_registro():
+    instance_id = os.getenv('INSTANCE_ID')
+    token = os.getenv('TOKEN')
+    group_id = os.getenv('GROUP_ID')
+    
+    # Debug output
+    print(f"Instance ID: {instance_id[:8]}...")
+    print(f"Group ID: {group_id}")
+    
+    ahora_hora = datetime.datetime.utcnow().hour
+    print(f"Current UTC hour: {ahora_hora}")
+    
+    mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+    print(f"Message: {mensaje}")
+    
+    url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+    payload = {
+        "token": token,
+        "to": group_id,
+        "body": mensaje
+    }
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    
+    r = requests.post(url, data=payload, headers=headers)
+    print(f"Status: {r.status_code}, Response: {r.text}")
+```
+
+<Warning>
+  Never print full tokens or sensitive credentials, even in GitHub Actions logs. Use truncation like `token[:8]...` if needed.
+</Warning>
+
+### Test UltraMsg API Directly
+
+Test your credentials with curl:
+
+```bash
+curl -X POST "https://api.ultramsg.com/{instance_id}/messages/chat" \
+  -d "token={token}" \
+  -d "to={group_id}" \
+  -d "body=Test message from curl"
+```
+
+If this works but the bot doesn't, the issue is in your Python code.
+
+### Check GitHub Actions Logs
+
+Detailed logs are available for each step:
+
+1. Go to **Actions** tab
+2. Click on a workflow run
+3. Click on the **run-bot** job
+4. Each step can be expanded to see full output
+5. Look for error messages in red
+
+## Getting Help
+
+If you're still having issues:
+
+1. Check the [UltraMsg API documentation](https://docs.ultramsg.com/)
+2. Verify your UltraMsg instance is active and connected
+3. Review the GitHub Actions logs for error details
+4. Test locally with debug output enabled
+
+<Tip>
+  Keep your UltraMsg instance connected to WhatsApp Web. If it disconnects, you'll need to scan the QR code again in the UltraMsg dashboard.
+</Tip>

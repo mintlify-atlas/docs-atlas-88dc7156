@@ -1,0 +1,534 @@
+---
+title: 'Frequently Asked Questions'
+description: 'Common questions about the WhatsApp Attendance Bot'
+icon: 'circle-question'
+---
+
+## General Questions
+
+<AccordionGroup>
+  <Accordion title="How do I change the schedule for sending messages?">
+    To change when messages are sent, edit the cron expressions in `.github/workflows/main.yml:7-8`.
+
+    **Current schedule (Mexico CST):**
+
+    ```yaml
+    schedule:
+      - cron: '0 15 * * 1-5'  # Monday-Friday 9:00 AM CST (15:00 UTC)
+      - cron: '0 21 * * 1-5'  # Monday-Friday 3:00 PM CST (21:00 UTC)
+    ```
+
+    **Cron syntax:**
+
+    ```
+    ┌───────────── minute (0 - 59)
+    │ ┌───────────── hour (0 - 23) in UTC
+    │ │ ┌───────────── day of month (1 - 31)
+    │ │ │ ┌───────────── month (1 - 12)
+    │ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
+    │ │ │ │ │
+    │ │ │ │ │
+    * * * * *
+    ```
+
+    **Examples:**
+
+    ```yaml
+    # 8:00 AM and 5:00 PM EST (13:00 and 22:00 UTC)
+    - cron: '0 13 * * 1-5'
+    - cron: '0 22 * * 1-5'
+
+    # 9:30 AM and 6:00 PM IST (04:00 and 12:30 UTC)
+    - cron: '0 4 * * 1-5'
+    - cron: '30 12 * * 1-5'
+
+    # Every day including weekends
+    - cron: '0 15 * * *'
+    ```
+
+    <Note>
+      Remember to adjust the time logic in `bot.py:13` if your check-out time is after 18:00 UTC.
+    </Note>
+
+    Use [crontab.guru](https://crontab.guru/) to build and test your cron expressions.
+  </Accordion>
+
+  <Accordion title="Can I send messages to multiple WhatsApp groups?">
+    Yes, but it requires modifying the code. Here are two approaches:
+
+    **Option 1: Multiple environment variables**
+
+    1. Add additional secrets in GitHub:
+       - `GROUP_ID_2`
+       - `GROUP_ID_3`
+
+    2. Modify `bot.py` to loop through groups:
+
+    ```python
+    def enviar_registro():
+        instance_id = os.getenv('INSTANCE_ID')
+        token = os.getenv('TOKEN')
+        group_ids = [
+            os.getenv('GROUP_ID'),
+            os.getenv('GROUP_ID_2'),
+            os.getenv('GROUP_ID_3')
+        ]
+        
+        ahora_hora = datetime.datetime.utcnow().hour
+        mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+
+        url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+        headers = {'content-type': 'application/x-www-form-urlencoded'}
+        
+        for group_id in group_ids:
+            if group_id:  # Skip if not set
+                payload = {
+                    "token": token,
+                    "to": group_id,
+                    "body": mensaje
+                }
+                r = requests.post(url, data=payload, headers=headers)
+                print(f"Group {group_id} - Status: {r.status_code}, Response: {r.text}")
+    ```
+
+    3. Update `.github/workflows/main.yml` to include new secrets:
+
+    ```yaml
+    - name: Execute Script
+      env:
+        INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+        TOKEN: ${{ secrets.TOKEN }}
+        GROUP_ID: ${{ secrets.GROUP_ID }}
+        GROUP_ID_2: ${{ secrets.GROUP_ID_2 }}
+        GROUP_ID_3: ${{ secrets.GROUP_ID_3 }}
+      run: python bot.py
+    ```
+
+    **Option 2: Comma-separated list**
+
+    1. Set `GROUP_ID` secret as: `group1@g.us,group2@g.us,group3@g.us`
+
+    2. Modify `bot.py`:
+
+    ```python
+    def enviar_registro():
+        instance_id = os.getenv('INSTANCE_ID')
+        token = os.getenv('TOKEN')
+        group_ids = os.getenv('GROUP_ID').split(',')
+        
+        # ... rest of the code with loop
+    ```
+  </Accordion>
+
+  <Accordion title="How do I customize the message content?">
+    Edit the message text in `bot.py:13`:
+
+    **Current message:**
+
+    ```python
+    mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+    ```
+
+    **Customization examples:**
+
+    **Add emojis:**
+
+    ```python
+    mensaje = "👋 Aldo Tolentino\n🟢 Entrada\n🕘 9:00 AM" if ahora_hora < 18 else "👋 Aldo Tolentino\n🔴 Salida\n🕒 3:00 PM"
+    ```
+
+    **Add department or role:**
+
+    ```python
+    mensaje = "Aldo Tolentino\nEngineering Team\nEntrada\n9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\nEngineering Team\nSalida\n3:00 PM"
+    ```
+
+    **Use dynamic timestamp:**
+
+    ```python
+    from datetime import datetime, timezone, timedelta
+
+    def enviar_registro():
+        instance_id = os.getenv('INSTANCE_ID')
+        token = os.getenv('TOKEN')
+        group_id = os.getenv('GROUP_ID')
+        
+        # Convert to your local timezone (e.g., Mexico CST = UTC-6)
+        local_tz = timezone(timedelta(hours=-6))
+        now = datetime.now(local_tz)
+        timestamp = now.strftime('%I:%M %p')
+        
+        if now.hour < 12:
+            mensaje = f"Aldo Tolentino\nEntrada\n{timestamp}"
+        else:
+            mensaje = f"Aldo Tolentino\nSalida\n{timestamp}"
+        
+        # ... rest of the code
+    ```
+
+    **Multi-line formatting:**
+
+    Use `\n` for line breaks:
+
+    ```python
+    mensaje = (
+        "Name: Aldo Tolentino\n"
+        "Status: Entrada\n"
+        "Time: 9:00 AM\n"
+        "Date: 2024-01-15"
+    ) if ahora_hora < 18 else (
+        "Name: Aldo Tolentino\n"
+        "Status: Salida\n"
+        "Time: 3:00 PM\n"
+        "Date: 2024-01-15"
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="What are the costs associated with this bot?">
+    The WhatsApp Attendance Bot has minimal to zero costs:
+
+    **GitHub Actions:**
+    - Free tier: 2,000 minutes/month for private repositories
+    - Public repositories: Unlimited free minutes
+    - This bot uses approximately 1 minute/day = 30 minutes/month
+    - **Cost: FREE** (well within limits)
+
+    **Ultramsg:**
+    - Free tier: 50 messages/day
+    - This bot sends 2 messages/day (check-in + check-out)
+    - **Cost: FREE** for basic usage
+    
+    Paid plans (if you need more):
+    - Basic: $9/month - 1,000 messages/day
+    - Pro: $29/month - 5,000 messages/day
+    - Enterprise: Custom pricing
+
+    Check current pricing at [ultramsg.com/pricing](https://ultramsg.com/pricing)
+
+    **Total monthly cost for standard usage: $0**
+
+    <Note>
+      If you send messages to multiple groups or increase frequency, ensure you stay within Ultramsg's free tier limits (50 messages/day).
+    </Note>
+  </Accordion>
+
+  <Accordion title="How reliable is the bot? Will messages always be sent on time?">
+    **GitHub Actions Reliability:**
+
+    - GitHub Actions scheduled workflows are generally reliable but not guaranteed to run at the exact scheduled time
+    - Typical delay: 0-10 minutes during normal load
+    - During high load: delays up to 30 minutes are possible
+    - GitHub makes no SLA guarantees for free tier scheduled workflows
+
+    **Best practices for reliability:**
+
+    1. **Schedule slightly before actual time:**
+       ```yaml
+       # If you need message at 9:00 AM, schedule for 8:55 AM
+       - cron: '55 14 * * 1-5'  # 8:55 AM CST
+       ```
+
+    2. **Use workflow_dispatch for manual backup:**
+       If automated message fails, run manually from Actions tab
+
+    3. **Monitor workflow runs:**
+       Enable email notifications for failed workflows:
+       - GitHub Settings > Notifications > Actions
+       - Check "Send notifications for failed workflows"
+
+    4. **Inactive repository warning:**
+       GitHub disables scheduled workflows after 60 days of repository inactivity. Make a commit every 50 days to keep it active.
+
+    **Ultramsg Reliability:**
+
+    - Ultramsg has high uptime (>99%)
+    - WhatsApp connection can occasionally disconnect
+    - Check Ultramsg dashboard regularly to verify connection status
+
+    **Recommendation:**
+
+    For mission-critical attendance tracking, consider:
+    - Setting up monitoring/alerts
+    - Having a manual backup process
+    - Using a dedicated VPS with cron jobs for guaranteed timing
+  </Accordion>
+</AccordionGroup>
+
+## Technical Questions
+
+<AccordionGroup>
+  <Accordion title="Can I run this bot on a server instead of GitHub Actions?">
+    Yes! The bot can run anywhere Python is available.
+
+    **Option 1: VPS with cron (Linux/Mac)**
+
+    1. Clone the repository to your server:
+       ```bash
+       git clone https://github.com/yourusername/your-repo.git
+       cd your-repo
+       ```
+
+    2. Install dependencies:
+       ```bash
+       pip install requests
+       ```
+
+    3. Create a `.env` file:
+       ```bash
+       echo "INSTANCE_ID=your_instance_id" > .env
+       echo "TOKEN=your_token" >> .env
+       echo "GROUP_ID=your_group_id" >> .env
+       ```
+
+    4. Modify `bot.py` to load .env (add at top):
+       ```python
+       from dotenv import load_dotenv
+       load_dotenv()
+       ```
+
+    5. Set up cron jobs:
+       ```bash
+       crontab -e
+       ```
+
+       Add these lines (adjust timezone as needed):
+       ```
+       # 9:00 AM local time (Monday-Friday)
+       0 9 * * 1-5 cd /path/to/repo && python bot.py
+       
+       # 3:00 PM local time (Monday-Friday)
+       0 15 * * 1-5 cd /path/to/repo && python bot.py
+       ```
+
+    **Option 2: Windows Task Scheduler**
+
+    1. Open Task Scheduler
+    2. Create two tasks for check-in and check-out
+    3. Set triggers for your desired times
+    4. Set action: `python C:\path\to\bot.py`
+    5. Set environment variables in task properties
+
+    **Advantages of self-hosting:**
+    - More reliable timing (no GitHub delays)
+    - Full control over execution
+    - No 60-day inactivity issue
+
+    **Disadvantages:**
+    - Requires server maintenance
+    - Must ensure server is always running
+    - You manage security/updates
+  </Accordion>
+
+  <Accordion title="How do I add logging to track message history?">
+    Add logging to `bot.py` to keep records of sent messages:
+
+    ```python
+    import requests
+    import os
+    import datetime
+    import logging
+
+    # Configure logging
+    logging.basicConfig(
+        filename='attendance_log.txt',
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+
+    def enviar_registro():
+        instance_id = os.getenv('INSTANCE_ID')
+        token = os.getenv('TOKEN')
+        group_id = os.getenv('GROUP_ID')
+        
+        ahora_hora = datetime.datetime.utcnow().hour
+        mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+
+        logging.info(f"Attempting to send: {mensaje.replace(chr(10), ' | ')}")
+        
+        url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+        payload = {
+            "token": token,
+            "to": group_id,
+            "body": mensaje
+        }
+        headers = {'content-type': 'application/x-www-form-urlencoded'}
+        
+        try:
+            r = requests.post(url, data=payload, headers=headers)
+            logging.info(f"Status: {r.status_code}, Response: {r.text}")
+            print(f"Status: {r.status_code}, Response: {r.text}")
+            
+            if r.status_code == 200:
+                logging.info("Message sent successfully")
+            else:
+                logging.error(f"Failed to send message: {r.status_code}")
+        except Exception as e:
+            logging.error(f"Exception occurred: {str(e)}")
+            raise
+
+    if __name__ == "__main__":
+        enviar_registro()
+    ```
+
+    **For GitHub Actions:**
+
+    Logs are stored in Actions tab automatically. To save them persistently:
+
+    ```yaml
+    - name: Execute Script
+      env:
+        INSTANCE_ID: ${{ secrets.INSTANCE_ID }}
+        TOKEN: ${{ secrets.TOKEN }}
+        GROUP_ID: ${{ secrets.GROUP_ID }}
+      run: python bot.py 2>&1 | tee -a log.txt
+    
+    - name: Upload logs
+      uses: actions/upload-artifact@v3
+      with:
+        name: attendance-logs
+        path: log.txt
+    ```
+  </Accordion>
+
+  <Accordion title="Can I use this with Telegram or other messaging platforms?">
+    Yes! The architecture is similar, just change the API integration.
+
+    **For Telegram:**
+
+    1. Create a bot using [@BotFather](https://t.me/botfather)
+    2. Get your bot token and chat ID
+    3. Modify `bot.py`:
+
+    ```python
+    import requests
+    import os
+    import datetime
+
+    def enviar_registro():
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        chat_id = os.getenv('TELEGRAM_CHAT_ID')
+        
+        ahora_hora = datetime.datetime.utcnow().hour
+        mensaje = "Aldo Tolentino\nEntrada\n9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\nSalida\n3:00 PM"
+
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": mensaje
+        }
+        
+        r = requests.post(url, json=payload)
+        print(f"Status: {r.status_code}, Response: {r.text}")
+
+    if __name__ == "__main__":
+        enviar_registro()
+    ```
+
+    4. Update GitHub secrets:
+       - `TELEGRAM_BOT_TOKEN`
+       - `TELEGRAM_CHAT_ID`
+
+    **For Slack:**
+
+    1. Create a Slack app and get webhook URL
+    2. Modify `bot.py`:
+
+    ```python
+    import requests
+    import os
+    import datetime
+
+    def enviar_registro():
+        webhook_url = os.getenv('SLACK_WEBHOOK_URL')
+        
+        ahora_hora = datetime.datetime.utcnow().hour
+        mensaje = "Aldo Tolentino - Entrada - 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino - Salida - 3:00 PM"
+
+        payload = {"text": mensaje}
+        
+        r = requests.post(webhook_url, json=payload)
+        print(f"Status: {r.status_code}, Response: {r.text}")
+
+    if __name__ == "__main__":
+        enviar_registro()
+    ```
+  </Accordion>
+
+  <Accordion title="How do I test the bot without sending real messages?">
+    **Option 1: Use a test WhatsApp group**
+
+    1. Create a separate WhatsApp group for testing
+    2. Get its group ID from Ultramsg
+    3. Temporarily update the `GROUP_ID` secret
+    4. Run workflow manually using `workflow_dispatch`
+    5. Restore original `GROUP_ID` when done
+
+    **Option 2: Add a dry-run mode**
+
+    Modify `bot.py` to support testing:
+
+    ```python
+    import requests
+    import os
+    import datetime
+
+    def enviar_registro():
+        instance_id = os.getenv('INSTANCE_ID')
+        token = os.getenv('TOKEN')
+        group_id = os.getenv('GROUP_ID')
+        dry_run = os.getenv('DRY_RUN', 'false').lower() == 'true'
+        
+        ahora_hora = datetime.datetime.utcnow().hour
+        mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+
+        url = f"https://api.ultramsg.com/{instance_id}/messages/chat"
+        payload = {
+            "token": token,
+            "to": group_id,
+            "body": mensaje
+        }
+        headers = {'content-type': 'application/x-www-form-urlencoded'}
+        
+        if dry_run:
+            print("DRY RUN MODE - Message would be sent:")
+            print(f"URL: {url}")
+            print(f"Payload: {payload}")
+            print("No actual message sent.")
+        else:
+            r = requests.post(url, data=payload, headers=headers)
+            print(f"Status: {r.status_code}, Response: {r.text}")
+
+    if __name__ == "__main__":
+        enviar_registro()
+    ```
+
+    Add `DRY_RUN` secret in GitHub (set to `true` for testing, `false` for production).
+
+    **Option 3: Local testing with mock**
+
+    ```bash
+    # Set environment variables locally
+    export INSTANCE_ID="test_instance"
+    export TOKEN="test_token"
+    export GROUP_ID="test_group@g.us"
+    export DRY_RUN="true"
+
+    # Run the script
+    python bot.py
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Need More Help?
+
+If your question isn't answered here:
+
+1. Check the [Troubleshooting Guide](/reference/troubleshooting) for common issues
+2. Review the [Bot Function API Reference](/reference/bot-function) for technical details
+3. Check GitHub Actions logs in the **Actions** tab
+4. Review Ultramsg dashboard for API-specific issues
+
+<Note>
+  For Ultramsg-specific questions, visit [Ultramsg Documentation](https://docs.ultramsg.com/) or contact their support team.
+</Note>

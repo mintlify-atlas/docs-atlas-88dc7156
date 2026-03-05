@@ -1,0 +1,353 @@
+---
+title: 'Troubleshooting'
+description: 'Common issues and solutions for the WhatsApp Attendance Bot'
+icon: 'wrench'
+---
+
+## Common Issues
+
+This guide covers the most common problems you may encounter when setting up and running the WhatsApp Attendance Bot.
+
+## Messages Sent at Wrong Time
+
+### Symptoms
+
+- Bot sends messages at unexpected times
+- Check-in sent when you expected check-out, or vice versa
+- Messages arrive hours before or after the intended time
+
+### Causes
+
+<AccordionGroup>
+  <Accordion title="Timezone Mismatch">
+    GitHub Actions runs on UTC time, but your local timezone may be different.
+
+    **Solution:**
+
+    1. Identify your timezone offset from UTC
+    2. Calculate the correct cron schedule
+    3. Update `.github/workflows/main.yml`
+
+    **Example for Mexico CST (UTC-6):**
+
+    ```yaml
+    schedule:
+      - cron: '0 15 * * 1-5'  # 9:00 AM CST = 15:00 UTC
+      - cron: '0 21 * * 1-5'  # 3:00 PM CST = 21:00 UTC
+    ```
+
+    **Example for EST (UTC-5):**
+
+    ```yaml
+    schedule:
+      - cron: '0 14 * * 1-5'  # 9:00 AM EST = 14:00 UTC
+      - cron: '0 20 * * 1-5'  # 3:00 PM EST = 20:00 UTC
+    ```
+
+    **Example for IST (UTC+5:30):**
+
+    ```yaml
+    schedule:
+      - cron: '30 3 * * 1-5'  # 9:00 AM IST = 03:30 UTC
+      - cron: '30 9 * * 1-5'  # 3:00 PM IST = 09:30 UTC
+    ```
+  </Accordion>
+
+  <Accordion title="Incorrect Time Logic in bot.py">
+    The function at `bot.py:13` uses a simple hour comparison:
+
+    ```python
+    mensaje = "Aldo Tolentino \n Entrada \n 9:00 AM" if ahora_hora < 18 else "Aldo Tolentino\n Salida\n 3:00 PM"
+    ```
+
+    This means:
+    - Hours 0-17 UTC: Check-in message
+    - Hours 18-23 UTC: Check-out message
+
+    **Solution:**
+
+    If your check-out is scheduled after 18:00 UTC but you're getting check-in messages, adjust the threshold:
+
+    ```python
+    # Example: Change to 20 if your check-out is at 21:00 UTC
+    mensaje = "..." if ahora_hora < 20 else "..."
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Missing GitHub Secrets
+
+### Symptoms
+
+- Workflow runs but fails with errors
+- API returns 401 Unauthorized or 400 Bad Request
+- Python errors: `TypeError: unsupported operand type(s) for +: 'NoneType' and 'str'`
+
+### Cause
+
+One or more required secrets are not configured in your GitHub repository.
+
+### Solution
+
+<Note>
+  GitHub Secrets are case-sensitive. Ensure you use the exact names: `INSTANCE_ID`, `TOKEN`, and `GROUP_ID`.
+</Note>
+
+1. Go to your repository on GitHub
+2. Click **Settings** > **Secrets and variables** > **Actions**
+3. Verify these three secrets exist:
+   - `INSTANCE_ID`
+   - `TOKEN`
+   - `GROUP_ID`
+4. If any are missing, click **New repository secret** and add them
+5. Re-run the workflow
+
+### How to Verify Secrets
+
+Add a debug step to your workflow (remove after testing):
+
+```yaml
+- name: Debug Secrets
+  run: |
+    echo "INSTANCE_ID is set: ${{ secrets.INSTANCE_ID != '' }}"
+    echo "TOKEN is set: ${{ secrets.TOKEN != '' }}"
+    echo "GROUP_ID is set: ${{ secrets.GROUP_ID != '' }}"
+```
+
+## Ultramsg API Errors
+
+### HTTP 401 Unauthorized
+
+**Cause:** Invalid or expired TOKEN
+
+**Solution:**
+
+1. Log in to [Ultramsg Dashboard](https://ultramsg.com)
+2. Navigate to your instance
+3. Copy the correct token
+4. Update the `TOKEN` secret in GitHub
+
+### HTTP 400 Bad Request
+
+**Cause:** Invalid GROUP_ID format or parameters
+
+**Solution:**
+
+1. Verify GROUP_ID format: `[country_code][number]@g.us`
+   - Example: `521234567890@g.us` (Mexico)
+   - Must include `@g.us` suffix for groups
+2. Use the group's phone number, not a personal number
+3. Update the `GROUP_ID` secret with the correct format
+
+### HTTP 429 Too Many Requests
+
+**Cause:** Exceeded Ultramsg rate limits
+
+**Solution:**
+
+- Check your Ultramsg plan limits
+- Ensure you're not running the workflow too frequently
+- Consider upgrading your Ultramsg plan
+
+### HTTP 500 Internal Server Error
+
+**Cause:** Ultramsg service issue
+
+**Solution:**
+
+- Check [Ultramsg status page](https://ultramsg.com)
+- Wait and try again later
+- Contact Ultramsg support if issue persists
+
+## Workflow Not Triggering
+
+### Symptoms
+
+- Scheduled time passes but workflow doesn't run
+- No workflow runs appear in the Actions tab
+
+### Causes and Solutions
+
+<AccordionGroup>
+  <Accordion title="Inactive Repository">
+    **Cause:** GitHub disables scheduled workflows in repositories with no activity for 60 days.
+
+    **Solution:**
+
+    1. Make a commit to the repository (can be a simple README update)
+    2. Push the commit to GitHub
+    3. The schedule will resume
+
+    **Prevent this:**
+
+    Set a reminder to make a commit every 50 days, or use the `workflow_dispatch` trigger to run manually.
+  </Accordion>
+
+  <Accordion title="Incorrect Cron Syntax">
+    **Cause:** Invalid cron expression in `.github/workflows/main.yml`
+
+    **Solution:**
+
+    Verify your cron syntax:
+
+    ```yaml
+    # Format: 'minute hour day month day_of_week'
+    - cron: '0 15 * * 1-5'  # Valid: Monday-Friday at 15:00 UTC
+    ```
+
+    Common mistakes:
+    - Using 12-hour format: `cron: '0 3 * * 1-5'` for 3 PM (should be `15`)
+    - Wrong day range: `cron: '0 15 * * 1-7'` (should be `1-5` for weekdays)
+
+    Test your cron expression at [crontab.guru](https://crontab.guru/)
+  </Accordion>
+
+  <Accordion title="Workflow File Not in Correct Location">
+    **Cause:** Workflow file is not in `.github/workflows/` directory
+
+    **Solution:**
+
+    Ensure your workflow file is at: `.github/workflows/main.yml`
+
+    ```bash
+    # Verify the file exists
+    ls -la .github/workflows/main.yml
+    ```
+  </Accordion>
+
+  <Accordion title="GitHub Actions Disabled">
+    **Cause:** Actions are disabled for the repository
+
+    **Solution:**
+
+    1. Go to repository **Settings** > **Actions** > **General**
+    2. Under "Actions permissions", select **Allow all actions**
+    3. Save the settings
+  </Accordion>
+</AccordionGroup>
+
+## Message Not Received in WhatsApp
+
+### Symptoms
+
+- Workflow runs successfully (status 200)
+- No message appears in WhatsApp group
+
+### Causes and Solutions
+
+<AccordionGroup>
+  <Accordion title="WhatsApp Instance Not Connected">
+    **Cause:** Your Ultramsg instance is not connected to WhatsApp
+
+    **Solution:**
+
+    1. Log in to [Ultramsg Dashboard](https://ultramsg.com)
+    2. Check instance connection status
+    3. If disconnected, scan the QR code to reconnect
+    4. Keep the browser tab open until connection is established
+  </Accordion>
+
+  <Accordion title="Wrong Group ID">
+    **Cause:** GROUP_ID doesn't match your WhatsApp group
+
+    **Solution:**
+
+    1. Send a message to your group from WhatsApp Web
+    2. In Ultramsg dashboard, go to **Chats**
+    3. Find your group and copy its ID
+    4. Update the `GROUP_ID` secret in GitHub
+
+    The ID should look like: `521234567890@g.us`
+  </Accordion>
+
+  <Accordion title="Bot Not Added to Group">
+    **Cause:** The phone number linked to your Ultramsg instance isn't in the group
+
+    **Solution:**
+
+    1. Add the phone number (linked to Ultramsg) to the WhatsApp group
+    2. Ensure it has permission to send messages
+    3. Test by running the workflow manually
+  </Accordion>
+</AccordionGroup>
+
+## Python Dependencies Error
+
+### Symptoms
+
+- Workflow fails with: `ModuleNotFoundError: No module named 'requests'`
+
+### Cause
+
+The `requests` library is not installed before running the script.
+
+### Solution
+
+Verify your workflow includes the install step at `.github/workflows/main.yml:23-24`:
+
+```yaml
+- name: Install dependencies
+  run: pip install requests
+```
+
+If you add more dependencies, update this step:
+
+```yaml
+- name: Install dependencies
+  run: pip install requests python-dotenv
+```
+
+Or use a `requirements.txt` file:
+
+```yaml
+- name: Install dependencies
+  run: pip install -r requirements.txt
+```
+
+## Manual Testing
+
+### Test the Workflow Manually
+
+The workflow includes `workflow_dispatch` trigger at `.github/workflows/main.yml:9`:
+
+```yaml
+workflow_dispatch: # Allows manual execution
+```
+
+**To run manually:**
+
+1. Go to **Actions** tab in your repository
+2. Select **Registro WhatsApp Automático** workflow
+3. Click **Run workflow** button
+4. Select branch and click **Run workflow**
+
+### Test the Script Locally
+
+```bash
+# Set environment variables
+export INSTANCE_ID="your_instance_id"
+export TOKEN="your_token"
+export GROUP_ID="your_group_id@g.us"
+
+# Run the script
+python bot.py
+```
+
+Expected output:
+
+```
+Status: 200, Response: {"sent":"true","message":"Message sent successfully"}
+```
+
+## Getting Help
+
+If you're still experiencing issues:
+
+1. Check the **Actions** tab for detailed error logs
+2. Review Ultramsg dashboard for API logs and errors
+3. Verify all three secrets are correctly set
+4. Test with `workflow_dispatch` before relying on the schedule
+
+<Warning>
+  GitHub Actions scheduled workflows may experience delays of up to 10 minutes during high load periods. This is normal behavior and not a configuration issue.
+</Warning>
