@@ -77,14 +77,14 @@ The function determines whether to send a check-in or check-out message based on
 The function sends one of two hardcoded messages:
 
 **Check-in (before 18:00 UTC):**
-```
+```text
 Aldo Tolentino 
  Entrada 
  9:00 AM
 ```
 
 **Check-out (18:00 UTC or later):**
-```
+```text
 Aldo Tolentino
  Salida
  3:00 PM
@@ -96,7 +96,7 @@ Aldo Tolentino
 
 The function makes a POST request to the Ultramsg chat messages endpoint:
 
-```
+```text
 https://api.ultramsg.com/{INSTANCE_ID}/messages/chat
 ```
 
@@ -140,7 +140,7 @@ print(f"Status: {r.status_code}, Response: {r.text}")
 
 ### Example Output
 
-```
+```text
 Status: 200, Response: {"sent":"true","message":"Message sent successfully"}
 ```
 
