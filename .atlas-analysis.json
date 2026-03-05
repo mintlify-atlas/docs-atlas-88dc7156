@@ -1,0 +1,57 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "WhatsApp Attendance Bot",
+  "projectDescription": "An automated WhatsApp bot that sends scheduled entry and exit notifications via GitHub Actions",
+  "theme": "palm",
+  "primaryColor": "#25D366",
+  "lightColor": "#34E877",
+  "darkColor": "#1DA851",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration/environment-variables",
+          "configuration/scheduling",
+          "configuration/ultramsg-setup"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/github-actions-setup",
+          "guides/customizing-messages",
+          "guides/testing"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/bot-function",
+          "reference/troubleshooting",
+          "reference/faq"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Automated WhatsApp messaging via Ultramsg API",
+    "Scheduled notifications using GitHub Actions cron jobs",
+    "Time-based entry/exit message detection",
+    "Manual workflow execution for testing",
+    "Environment-based configuration"
+  ],
+  "publicApiSurface": [
+    "enviar_registro() - Main function to send attendance notifications",
+    "INSTANCE_ID - Environment variable for Ultramsg instance",
+    "TOKEN - Environment variable for Ultramsg authentication",
+    "GROUP_ID - Environment variable for WhatsApp group/contact ID"
+  ]
+}
